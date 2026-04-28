@@ -7,7 +7,7 @@
         "data": {
           "warning_threshold": "Порог предупреждения (%)",
           "critical_threshold": "Критический порог (%)",
-          "notify_service": "Имя notify сервиса"
+          "notify_service": "Notify сервис"
         }
       }
     },
@@ -27,7 +27,7 @@
         "data": {
           "warning_threshold": "Порог предупреждения (%)",
           "critical_threshold": "Критический порог (%)",
-          "notify_service": "Имя notify сервиса",
+          "notify_service": "Notify сервис",
           "excluded_entities": "Исключённые батарейные сенсоры"
         }
       }

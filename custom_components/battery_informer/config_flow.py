@@ -7,9 +7,20 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant import config_entries
+from homeassistant.components.notify.const import (
+    DOMAIN as NOTIFY_DOMAIN,
+    SERVICE_NOTIFY,
+    SERVICE_SEND_MESSAGE,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
-from homeassistant.helpers.selector import NumberSelector, NumberSelectorConfig, SelectOptionDict, SelectSelector, SelectSelectorConfig, TextSelector
+from homeassistant.helpers.selector import (
+    NumberSelector,
+    NumberSelectorConfig,
+    SelectOptionDict,
+    SelectSelector,
+    SelectSelectorConfig,
+)
 
 from .const import (
     CONF_CRITICAL_THRESHOLD,
@@ -24,7 +35,41 @@ from .const import (
 from .detector import build_entity_option_label, get_battery_reading, normalize_notify_service
 
 
+def _get_notify_service_options(
+    hass: HomeAssistant,
+    current_service: str,
+) -> list[SelectOptionDict]:
+    options = [
+        SelectOptionDict(value=service_name, label=f"notify.{service_name}")
+        for service_name in sorted(hass.services.async_services().get(NOTIFY_DOMAIN, {}))
+        if service_name not in {SERVICE_NOTIFY, SERVICE_SEND_MESSAGE}
+    ]
+
+    if current_service and current_service not in {
+        option["value"] for option in options
+    }:
+        options.append(SelectOptionDict(value=current_service, label=f"notify.{current_service}"))
+
+    return options
+
+
+def _build_notify_service_selector(
+    hass: HomeAssistant,
+    current_service: str,
+) -> SelectSelector:
+    options = _get_notify_service_options(hass, current_service)
+    return SelectSelector(
+        SelectSelectorConfig(
+            options=options,
+            custom_value=not options,
+            mode="dropdown",
+            sort=True,
+        )
+    )
+
+
 def _build_common_schema(
+    hass: HomeAssistant,
     *,
     warning_threshold: int,
     critical_threshold: int,
@@ -38,7 +83,10 @@ def _build_common_schema(
             vol.Required(CONF_CRITICAL_THRESHOLD, default=critical_threshold): NumberSelector(
                 NumberSelectorConfig(min=1, max=100, mode="box")
             ),
-            vol.Required(CONF_NOTIFY_SERVICE, default=notify_service): TextSelector(),
+            vol.Required(CONF_NOTIFY_SERVICE, default=notify_service): _build_notify_service_selector(
+                hass,
+                notify_service,
+            ),
         }
     )
 
@@ -62,21 +110,40 @@ def _build_excluded_entities_selector(
 
 
 def _build_options_schema(config_entry: config_entries.ConfigEntry, hass: HomeAssistant) -> vol.Schema:
-    selected_entities = list(config_entry.options.get(CONF_EXCLUDED_ENTITIES, config_entry.data.get(CONF_EXCLUDED_ENTITIES, [])))
+    selected_entities = list(
+        config_entry.options.get(
+            CONF_EXCLUDED_ENTITIES,
+            config_entry.data.get(CONF_EXCLUDED_ENTITIES, []),
+        )
+    )
+    notify_service = config_entry.options.get(
+        CONF_NOTIFY_SERVICE,
+        config_entry.data.get(CONF_NOTIFY_SERVICE, ""),
+    )
     return vol.Schema(
         {
             vol.Required(
                 CONF_WARNING_THRESHOLD,
-                default=config_entry.options.get(CONF_WARNING_THRESHOLD, config_entry.data.get(CONF_WARNING_THRESHOLD, DEFAULT_WARNING_THRESHOLD)),
+                default=config_entry.options.get(
+                    CONF_WARNING_THRESHOLD,
+                    config_entry.data.get(
+                        CONF_WARNING_THRESHOLD, DEFAULT_WARNING_THRESHOLD
+                    ),
+                ),
             ): NumberSelector(NumberSelectorConfig(min=1, max=100, mode="box")),
             vol.Required(
                 CONF_CRITICAL_THRESHOLD,
-                default=config_entry.options.get(CONF_CRITICAL_THRESHOLD, config_entry.data.get(CONF_CRITICAL_THRESHOLD, DEFAULT_CRITICAL_THRESHOLD)),
+                default=config_entry.options.get(
+                    CONF_CRITICAL_THRESHOLD,
+                    config_entry.data.get(
+                        CONF_CRITICAL_THRESHOLD, DEFAULT_CRITICAL_THRESHOLD
+                    ),
+                ),
             ): NumberSelector(NumberSelectorConfig(min=1, max=100, mode="box")),
             vol.Required(
                 CONF_NOTIFY_SERVICE,
-                default=config_entry.options.get(CONF_NOTIFY_SERVICE, config_entry.data.get(CONF_NOTIFY_SERVICE, "")),
-            ): TextSelector(),
+                default=notify_service,
+            ): _build_notify_service_selector(hass, notify_service),
             vol.Required(CONF_EXCLUDED_ENTITIES, default=selected_entities): _build_excluded_entities_selector(
                 hass,
                 selected_entities,
@@ -135,9 +202,16 @@ class BatteryInformerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user",
             data_schema=_build_common_schema(
+                self.hass,
                 warning_threshold=DEFAULT_WARNING_THRESHOLD,
                 critical_threshold=DEFAULT_CRITICAL_THRESHOLD,
-                notify_service="telegram",
+                notify_service=next(
+                    iter(
+                        option["value"]
+                        for option in _get_notify_service_options(self.hass, "")
+                    ),
+                    "",
+                ),
             ),
             errors=errors,
         )
