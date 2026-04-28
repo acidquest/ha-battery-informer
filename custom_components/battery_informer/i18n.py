@@ -52,11 +52,33 @@ def get_legacy_notify_service_label(language: str, service_name: str) -> str:
     return f"Legacy notify service (notify.{service_name})"
 
 
-def get_default_test_notification_message(language: str) -> str:
-    """Return a localized default test notification message."""
+def build_lowest_battery_message(
+    reading: BatteryReading,
+    current_level: str,
+    language: str,
+) -> str:
+    """Build a localized message describing the lowest tracked battery."""
+    level_label = _get_level_label(current_level, language)
     if language == LANG_RU:
-        return "Тестовое сообщение Battery Informer. Интеграция настроена и может отправлять уведомления."
-    return "Battery Informer test notification. The integration is configured and can send messages."
+        if reading.level_percent is None:
+            return (
+                f"Самая разряженная батарея: {reading.name} ({reading.entity_id}) "
+                f"сообщает о низком заряде. Текущий статус: {level_label}."
+            )
+        return (
+            f"Самая разряженная батарея: {reading.name} ({reading.entity_id}) "
+            f"имеет {reading.level_percent}%. Текущий статус: {level_label}."
+        )
+
+    if reading.level_percent is None:
+        return (
+            f"Lowest tracked battery: {reading.name} ({reading.entity_id}) "
+            f"reports a low-battery condition. Current status: {level_label}."
+        )
+    return (
+        f"Lowest tracked battery: {reading.name} ({reading.entity_id}) "
+        f"is at {reading.level_percent}%. Current status: {level_label}."
+    )
 
 
 def normalize_builtin_template(template: str, template_key: str, language: str) -> str:
@@ -238,6 +260,21 @@ def _render_message_template(
         details_recovery=_build_details_recovery(reading, language),
     )
     return template.format_map(context)
+
+
+def _get_level_label(level: str, language: str) -> str:
+    if language == LANG_RU:
+        if level == LEVEL_CRITICAL:
+            return "критический"
+        if level == LEVEL_WARNING:
+            return "предупреждение"
+        return "норма"
+
+    if level == LEVEL_CRITICAL:
+        return "critical"
+    if level == LEVEL_WARNING:
+        return "warning"
+    return "normal"
 
 
 def _build_details_warning(

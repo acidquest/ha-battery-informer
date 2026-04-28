@@ -27,8 +27,8 @@ from .const import (
 )
 from .detector import BatteryReading, classify_battery_reading, get_battery_reading
 from .i18n import (
+    build_lowest_battery_message,
     build_localized_level_message,
-    get_default_test_notification_message,
     get_hass_language,
 )
 
@@ -164,11 +164,20 @@ class BatteryInformerManager:
         )
         await self._async_send_raw_notification(message)
 
-    async def async_send_test_notification(self, message: str | None = None) -> None:
-        """Send a test notification through the configured target."""
-        await self._async_send_raw_notification(
-            message or get_default_test_notification_message(get_hass_language(self.hass))
+    async def async_send_lowest_battery_notification(self) -> bool:
+        """Send a notification describing the lowest tracked battery."""
+        lowest = self._get_lowest_tracked_battery()
+        if lowest is None:
+            return False
+
+        reading, current_level = lowest
+        message = build_lowest_battery_message(
+            reading=reading,
+            current_level=current_level,
+            language=get_hass_language(self.hass),
         )
+        await self._async_send_raw_notification(message)
+        return True
 
     def async_add_listener(self, listener: Callable[[], None]) -> Callable[[], None]:
         """Register a callback invoked when tracked battery data changes."""
@@ -197,6 +206,25 @@ class BatteryInformerManager:
                 }
             )
         return batteries
+
+    def _get_lowest_tracked_battery(self) -> tuple[BatteryReading, str] | None:
+        """Return the lowest tracked battery and its current status."""
+        candidates: list[tuple[BatteryReading, str]] = []
+        for state in self.hass.states.async_all():
+            reading = get_battery_reading(state)
+            if reading is None or not self._is_entity_selected(reading.entity_id):
+                continue
+            current_level = classify_battery_reading(
+                reading,
+                self.warning_threshold,
+                self.critical_threshold,
+            )
+            candidates.append((reading, current_level))
+
+        if not candidates:
+            return None
+
+        return min(candidates, key=self._lowest_battery_sort_key)
 
     def get_summary(self) -> dict[str, object]:
         """Return a summary of tracked battery sensors."""
@@ -250,6 +278,17 @@ class BatteryInformerManager:
         if "telegram" in self.notify_target:
             payload["data"] = {"parse_mode": "html"}
         return payload
+
+    @staticmethod
+    def _lowest_battery_sort_key(item: tuple[BatteryReading, str]) -> tuple[int, int, str]:
+        """Sort by severity first, then by numeric level, then entity id."""
+        reading, current_level = item
+        severity_rank = {
+            LEVEL_CRITICAL: 0,
+            LEVEL_WARNING: 1,
+        }.get(current_level, 2)
+        numeric_level = reading.level_percent if reading.level_percent is not None else 101
+        return (severity_rank, numeric_level, reading.entity_id)
 
     @staticmethod
     def _states_are_equivalent(old_state: object, new_state: object) -> bool:

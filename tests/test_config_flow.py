@@ -180,3 +180,9 @@ def test_build_options_schema_normalizes_legacy_notify_default() -> None:
         key for key in schema.schema if getattr(key, "schema", None) == "reset_templates_to_default"
     )
     assert reset_templates_marker.default() is False
+    send_preview_marker = next(
+        key
+        for key in schema.schema
+        if getattr(key, "schema", None) == "send_lowest_battery_notification"
+    )
+    assert send_preview_marker.default() is False

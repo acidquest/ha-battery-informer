@@ -38,6 +38,7 @@ from .const import (
     CONF_RESCAN_INTERVAL_MINUTES,
     CONF_RESET_TEMPLATES_TO_DEFAULT,
     CONF_RECOVERY_TEMPLATE,
+    CONF_SEND_LOWEST_BATTERY_NOTIFICATION,
     CONF_WARNING_THRESHOLD,
     CONF_WARNING_TEMPLATE,
     DEFAULT_CRITICAL_THRESHOLD,
@@ -197,6 +198,10 @@ def _build_template_selector() -> TextSelector:
 
 
 def _build_reset_templates_selector() -> BooleanSelector:
+    return BooleanSelector(BooleanSelectorConfig())
+
+
+def _build_send_lowest_battery_notification_selector() -> BooleanSelector:
     return BooleanSelector(BooleanSelectorConfig())
 
 
@@ -417,6 +422,10 @@ def _build_options_schema(config_entry: config_entries.ConfigEntry, hass: HomeAs
                 CONF_RESET_TEMPLATES_TO_DEFAULT,
                 default=False,
             ): _build_reset_templates_selector(),
+            vol.Optional(
+                CONF_SEND_LOWEST_BATTERY_NOTIFICATION,
+                default=False,
+            ): _build_send_lowest_battery_notification_selector(),
         }
     )
 
@@ -537,36 +546,47 @@ class BatteryInformerOptionsFlow(config_entries.OptionsFlow):
             else:
                 default_templates = _get_localized_default_templates(self.hass)
                 reset_templates = bool(user_input.get(CONF_RESET_TEMPLATES_TO_DEFAULT))
-                return self.async_create_entry(
-                    title="",
-                    data={
-                        CONF_WARNING_THRESHOLD: int(user_input[CONF_WARNING_THRESHOLD]),
-                        CONF_CRITICAL_THRESHOLD: int(user_input[CONF_CRITICAL_THRESHOLD]),
-                        CONF_NOTIFY_SERVICE: notify_service,
-                        CONF_RESCAN_INTERVAL_MINUTES: int(user_input[CONF_RESCAN_INTERVAL_MINUTES]),
-                        CONF_MONITORING_MODE: str(user_input[CONF_MONITORING_MODE]),
-                        CONF_EXCLUDED_ENTITIES: sorted(set(user_input.get(CONF_EXCLUDED_ENTITIES, []))),
-                        CONF_INCLUDED_ENTITIES: sorted(set(user_input.get(CONF_INCLUDED_ENTITIES, []))),
-                        CONF_WARNING_TEMPLATE: (
-                            default_templates["warning_template"]
-                            if reset_templates
-                            else str(user_input.get(CONF_WARNING_TEMPLATE, "")).strip()
-                            or default_templates["warning_template"]
-                        ),
-                        CONF_CRITICAL_TEMPLATE: (
-                            default_templates["critical_template"]
-                            if reset_templates
-                            else str(user_input.get(CONF_CRITICAL_TEMPLATE, "")).strip()
-                            or default_templates["critical_template"]
-                        ),
-                        CONF_RECOVERY_TEMPLATE: (
-                            default_templates["recovery_template"]
-                            if reset_templates
-                            else str(user_input.get(CONF_RECOVERY_TEMPLATE, "")).strip()
-                            or default_templates["recovery_template"]
-                        ),
-                    },
-                )
+                options_data = {
+                    CONF_WARNING_THRESHOLD: int(user_input[CONF_WARNING_THRESHOLD]),
+                    CONF_CRITICAL_THRESHOLD: int(user_input[CONF_CRITICAL_THRESHOLD]),
+                    CONF_NOTIFY_SERVICE: notify_service,
+                    CONF_RESCAN_INTERVAL_MINUTES: int(user_input[CONF_RESCAN_INTERVAL_MINUTES]),
+                    CONF_MONITORING_MODE: str(user_input[CONF_MONITORING_MODE]),
+                    CONF_EXCLUDED_ENTITIES: sorted(set(user_input.get(CONF_EXCLUDED_ENTITIES, []))),
+                    CONF_INCLUDED_ENTITIES: sorted(set(user_input.get(CONF_INCLUDED_ENTITIES, []))),
+                    CONF_WARNING_TEMPLATE: (
+                        default_templates["warning_template"]
+                        if reset_templates
+                        else str(user_input.get(CONF_WARNING_TEMPLATE, "")).strip()
+                        or default_templates["warning_template"]
+                    ),
+                    CONF_CRITICAL_TEMPLATE: (
+                        default_templates["critical_template"]
+                        if reset_templates
+                        else str(user_input.get(CONF_CRITICAL_TEMPLATE, "")).strip()
+                        or default_templates["critical_template"]
+                    ),
+                    CONF_RECOVERY_TEMPLATE: (
+                        default_templates["recovery_template"]
+                        if reset_templates
+                        else str(user_input.get(CONF_RECOVERY_TEMPLATE, "")).strip()
+                        or default_templates["recovery_template"]
+                    ),
+                }
+                if bool(user_input.get(CONF_SEND_LOWEST_BATTERY_NOTIFICATION)):
+                    from .manager import BatteryInformerManager
+
+                    preview_manager = BatteryInformerManager(
+                        self.hass,
+                        self._config_entry.entry_id,
+                        options_data,
+                    )
+                    if not await preview_manager.async_send_lowest_battery_notification():
+                        errors["base"] = "no_batteries_found"
+                    else:
+                        return self.async_create_entry(title="", data=options_data)
+                else:
+                    return self.async_create_entry(title="", data=options_data)
 
         return self.async_show_form(
             step_id="init",

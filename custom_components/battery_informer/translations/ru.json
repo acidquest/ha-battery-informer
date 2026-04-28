@@ -19,7 +19,8 @@
     "error": {
       "invalid_thresholds": "Критический порог должен быть ниже порога предупреждения",
       "notify_service_not_found": "Указанный notify сервис не найден",
-      "invalid_notify_service": "Некорректный формат notify сервиса"
+      "invalid_notify_service": "Некорректный формат notify сервиса",
+      "no_batteries_found": "Для отправки проверочного уведомления не найдено ни одной отслеживаемой батареи"
     },
     "abort": {
       "already_configured": "Battery Informer уже настроен"
@@ -40,7 +41,8 @@
           "warning_template": "Шаблон warning-сообщения",
           "critical_template": "Шаблон critical-сообщения",
           "recovery_template": "Шаблон recovery-сообщения",
-          "reset_templates_to_default": "Сбросить шаблоны к значениям по умолчанию"
+          "reset_templates_to_default": "Сбросить шаблоны к значениям по умолчанию",
+          "send_lowest_battery_notification": "Отправить уведомление по самой разряженной батарее при сохранении"
         }
       }
     }

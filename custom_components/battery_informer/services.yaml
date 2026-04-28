@@ -1,8 +1,0 @@
-send_test_notification:
-  fields:
-    message:
-      required: false
-      example: Battery Informer test notification. The integration is configured and can send messages.
-      default: Battery Informer test notification. The integration is configured and can send messages.
-      selector:
-        text:

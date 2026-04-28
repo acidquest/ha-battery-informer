@@ -171,31 +171,53 @@ async def test_manager_sends_notification_via_notify_entity() -> None:
 
 
 @pytest.mark.asyncio
-async def test_manager_sends_test_notification() -> None:
+async def test_manager_sends_lowest_battery_notification() -> None:
+    state = State(
+        "sensor.front_door_battery",
+        "19",
+        {
+            ATTR_DEVICE_CLASS: SensorDeviceClass.BATTERY,
+            ATTR_UNIT_OF_MEASUREMENT: "%",
+            ATTR_FRIENDLY_NAME: "Front Door Battery",
+        },
+    )
     hass = SimpleNamespace(
         config=SimpleNamespace(language="en"),
         services=SimpleNamespace(async_call=AsyncMock()),
-        states=SimpleNamespace(async_all=lambda _domain=None: []),
+        states=SimpleNamespace(async_all=lambda _domain=None: [state]),
         async_create_task=lambda coro: coro,
     )
     manager = _build_manager(hass)
 
-    await manager.async_send_test_notification("hello")
+    result = await manager.async_send_lowest_battery_notification()
 
+    assert result is True
     hass.services.async_call.assert_awaited_once_with(
         "notify",
         "telegram",
-        {"message": "hello", "data": {"parse_mode": "html"}},
+        {
+            "message": "Lowest tracked battery: Front Door Battery (sensor.front_door_battery) is at 19%. Current status: warning.",
+            "data": {"parse_mode": "html"},
+        },
         blocking=False,
     )
 
 
 @pytest.mark.asyncio
 async def test_manager_does_not_add_telegram_payload_for_non_telegram_target() -> None:
+    state = State(
+        "sensor.front_door_battery",
+        "19",
+        {
+            ATTR_DEVICE_CLASS: SensorDeviceClass.BATTERY,
+            ATTR_UNIT_OF_MEASUREMENT: "%",
+            ATTR_FRIENDLY_NAME: "Front Door Battery",
+        },
+    )
     hass = SimpleNamespace(
         config=SimpleNamespace(language="en"),
         services=SimpleNamespace(async_call=AsyncMock()),
-        states=SimpleNamespace(async_all=lambda _domain: []),
+        states=SimpleNamespace(async_all=lambda _domain=None: [state]),
         async_create_task=lambda coro: coro,
     )
     manager = BatteryInformerManager(
@@ -212,33 +234,46 @@ async def test_manager_does_not_add_telegram_payload_for_non_telegram_target() -
         },
     )
 
-    await manager.async_send_test_notification("hello")
+    result = await manager.async_send_lowest_battery_notification()
 
+    assert result is True
     hass.services.async_call.assert_awaited_once_with(
         "notify",
         "mobile_app_pixel",
-        {"message": "hello"},
+        {
+            "message": "Lowest tracked battery: Front Door Battery (sensor.front_door_battery) is at 19%. Current status: warning."
+        },
         blocking=False,
     )
 
 
 @pytest.mark.asyncio
-async def test_manager_localizes_default_test_notification_message() -> None:
+async def test_manager_localizes_lowest_battery_notification_message() -> None:
+    state = State(
+        "sensor.front_door_battery",
+        "9",
+        {
+            ATTR_DEVICE_CLASS: SensorDeviceClass.BATTERY,
+            ATTR_UNIT_OF_MEASUREMENT: "%",
+            ATTR_FRIENDLY_NAME: "Front Door Battery",
+        },
+    )
     hass = SimpleNamespace(
         config=SimpleNamespace(language="ru"),
         services=SimpleNamespace(async_call=AsyncMock()),
-        states=SimpleNamespace(async_all=lambda _domain=None: []),
+        states=SimpleNamespace(async_all=lambda _domain=None: [state]),
         async_create_task=lambda coro: coro,
     )
     manager = _build_manager(hass)
 
-    await manager.async_send_test_notification()
+    result = await manager.async_send_lowest_battery_notification()
 
+    assert result is True
     hass.services.async_call.assert_awaited_once_with(
         "notify",
         "telegram",
         {
-            "message": "Тестовое сообщение Battery Informer. Интеграция настроена и может отправлять уведомления.",
+            "message": "Самая разряженная батарея: Front Door Battery (sensor.front_door_battery) имеет 9%. Текущий статус: критический.",
             "data": {"parse_mode": "html"},
         },
         blocking=False,

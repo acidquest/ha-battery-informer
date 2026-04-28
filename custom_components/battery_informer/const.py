@@ -18,6 +18,7 @@ CONF_WARNING_TEMPLATE: Final = "warning_template"
 CONF_CRITICAL_TEMPLATE: Final = "critical_template"
 CONF_RECOVERY_TEMPLATE: Final = "recovery_template"
 CONF_RESET_TEMPLATES_TO_DEFAULT: Final = "reset_templates_to_default"
+CONF_SEND_LOWEST_BATTERY_NOTIFICATION: Final = "send_lowest_battery_notification"
 
 DEFAULT_WARNING_THRESHOLD: Final = 20
 DEFAULT_CRITICAL_THRESHOLD: Final = 10
@@ -40,6 +41,3 @@ LEVEL_WARNING: Final = "warning"
 LEVEL_CRITICAL: Final = "critical"
 
 ALLOWED_BATTERY_UNIT_VALUES: Final = {"%", ""}
-
-SERVICE_SEND_TEST_NOTIFICATION: Final = "send_test_notification"
-ATTR_MESSAGE: Final = "message"

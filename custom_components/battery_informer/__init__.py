@@ -5,14 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TypeAlias
 
-import voluptuous as vol
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import config_validation as cv
 
 from .const import (
-    ATTR_MESSAGE,
     CONF_CRITICAL_THRESHOLD,
     CONF_CRITICAL_TEMPLATE,
     CONF_EXCLUDED_ENTITIES,
@@ -34,7 +30,6 @@ from .const import (
     DEFAULT_WARNING_TEMPLATE,
     DOMAIN,
     PLATFORMS,
-    SERVICE_SEND_TEST_NOTIFICATION,
 )
 from .i18n import get_default_message_templates, get_hass_language, normalize_builtin_template
 from .manager import BatteryInformerManager
@@ -53,22 +48,6 @@ BatteryInformerConfigEntry: TypeAlias = ConfigEntry[BatteryInformerRuntimeData]
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the integration namespace."""
     hass.data.setdefault(DOMAIN, {})
-
-    async def _async_send_test_notification(call) -> None:
-        entry_id = next(iter(hass.data[DOMAIN]), None)
-        if entry_id is None:
-            return
-        runtime_data = hass.data[DOMAIN].get(entry_id)
-        if runtime_data is None:
-            return
-        await runtime_data.manager.async_send_test_notification(call.data.get(ATTR_MESSAGE))
-
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_SEND_TEST_NOTIFICATION,
-        _async_send_test_notification,
-        schema=vol.Schema({vol.Optional(ATTR_MESSAGE): cv.string}),
-    )
     return True
 
 

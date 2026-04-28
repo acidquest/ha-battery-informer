@@ -19,7 +19,8 @@
     "error": {
       "invalid_thresholds": "Critical threshold must be lower than warning threshold",
       "notify_service_not_found": "The selected notify service was not found",
-      "invalid_notify_service": "Invalid notify service format"
+      "invalid_notify_service": "Invalid notify service format",
+      "no_batteries_found": "No tracked batteries were found for sending a verification notification"
     },
     "abort": {
       "already_configured": "Battery Informer is already configured"
@@ -40,7 +41,8 @@
           "warning_template": "Warning message template",
           "critical_template": "Critical message template",
           "recovery_template": "Recovery message template",
-          "reset_templates_to_default": "Reset templates to default"
+          "reset_templates_to_default": "Reset templates to default",
+          "send_lowest_battery_notification": "Send notification for the lowest tracked battery when saving"
         }
       }
     }
