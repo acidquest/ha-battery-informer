@@ -32,32 +32,75 @@ from .const import (
     DEFAULT_WARNING_THRESHOLD,
     DOMAIN,
 )
-from .detector import build_entity_option_label, get_battery_reading, normalize_notify_service
+from .detector import (
+    build_entity_option_label,
+    get_battery_reading,
+    normalize_notify_service,
+    normalize_notify_target,
+)
 
 
 def _get_notify_service_options(
     hass: HomeAssistant,
-    current_service: str,
+    current_target: str,
 ) -> list[SelectOptionDict]:
-    options = [
-        SelectOptionDict(value=service_name, label=f"notify.{service_name}")
+    try:
+        normalized_current_target = normalize_notify_target(current_target)
+    except ValueError:
+        normalized_current_target = current_target
+
+    options: list[SelectOptionDict] = []
+
+    options.extend(
+        SelectOptionDict(
+            value=f"entity:{state.entity_id}",
+            label=f"{state.name or state.entity_id} ({state.entity_id})",
+        )
+        for state in sorted(hass.states.async_all(NOTIFY_DOMAIN), key=lambda item: item.name or item.entity_id)
+    )
+
+    options.extend(
+        SelectOptionDict(
+            value=f"service:{service_name}",
+            label=f"Legacy service (notify.{service_name})",
+        )
         for service_name in sorted(hass.services.async_services().get(NOTIFY_DOMAIN, {}))
         if service_name not in {SERVICE_NOTIFY, SERVICE_SEND_MESSAGE}
-    ]
+    )
 
-    if current_service and current_service not in {
+    if normalized_current_target and normalized_current_target not in {
         option["value"] for option in options
     }:
-        options.append(SelectOptionDict(value=current_service, label=f"notify.{current_service}"))
+        if normalized_current_target.startswith("entity:"):
+            entity_id = normalized_current_target.removeprefix("entity:")
+            options.append(
+                SelectOptionDict(
+                    value=normalized_current_target,
+                    label=f"{entity_id} ({entity_id})",
+                )
+            )
+        elif normalized_current_target.startswith("service:"):
+            service_name = normalized_current_target.removeprefix("service:")
+            options.append(
+                SelectOptionDict(
+                    value=normalized_current_target,
+                    label=f"Legacy service (notify.{service_name})",
+                )
+            )
 
     return options
 
 
 def _build_notify_service_selector(
     hass: HomeAssistant,
-    current_service: str,
+    current_target: str,
 ) -> SelectSelector:
-    options = _get_notify_service_options(hass, current_service)
+    try:
+        normalized_current_target = normalize_notify_target(current_target)
+    except ValueError:
+        normalized_current_target = current_target
+
+    options = _get_notify_service_options(hass, normalized_current_target)
     return SelectSelector(
         SelectSelectorConfig(
             options=options,
@@ -116,9 +159,11 @@ def _build_options_schema(config_entry: config_entries.ConfigEntry, hass: HomeAs
             config_entry.data.get(CONF_EXCLUDED_ENTITIES, []),
         )
     )
-    notify_service = config_entry.options.get(
-        CONF_NOTIFY_SERVICE,
-        config_entry.data.get(CONF_NOTIFY_SERVICE, ""),
+    notify_service = str(
+        config_entry.options.get(
+            CONF_NOTIFY_SERVICE,
+            config_entry.data.get(CONF_NOTIFY_SERVICE, ""),
+        )
     )
     return vol.Schema(
         {
@@ -160,10 +205,19 @@ def _validate_thresholds(user_input: dict[str, Any]) -> None:
 
 
 def _validate_notify_service(hass: HomeAssistant, raw_service: str) -> str:
-    service = normalize_notify_service(raw_service)
-    if not hass.services.has_service("notify", service):
+    target = normalize_notify_target(raw_service)
+
+    if target.startswith("entity:"):
+        entity_id = target.removeprefix("entity:")
+        state = hass.states.get(entity_id)
+        if state is None or state.domain != NOTIFY_DOMAIN:
+            raise ValueError("notify_service_not_found")
+        return target
+
+    service = normalize_notify_service(target.removeprefix("service:"))
+    if not hass.services.has_service(NOTIFY_DOMAIN, service):
         raise ValueError("notify_service_not_found")
-    return service
+    return f"service:{service}"
 
 
 class BatteryInformerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):

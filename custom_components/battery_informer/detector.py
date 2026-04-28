@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import re
 from typing import Any
 
+from homeassistant.components.notify.const import DOMAIN as NOTIFY_DOMAIN
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN, SensorDeviceClass
 from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_FRIENDLY_NAME, ATTR_UNIT_OF_MEASUREMENT
 from homeassistant.core import State
@@ -13,6 +14,8 @@ from homeassistant.core import State
 from .const import ALLOWED_BATTERY_UNIT_VALUES, LEVEL_CRITICAL, LEVEL_NORMAL, LEVEL_WARNING
 
 _SERVICE_NAME_RE = re.compile(r"^[a-z0-9_]+$")
+_NOTIFY_ENTITY_PREFIX = "entity:"
+_NOTIFY_SERVICE_PREFIX = "service:"
 
 
 @dataclass(slots=True, frozen=True)
@@ -32,6 +35,33 @@ def normalize_notify_service(raw_service: str) -> str:
     if not value or not _SERVICE_NAME_RE.fullmatch(value):
         raise ValueError("invalid_notify_service")
     return value
+
+
+def normalize_notify_target(raw_target: str) -> str:
+    """Normalize a notify target to an explicit entity or legacy service value."""
+    value = raw_target.strip().lower()
+    if not value:
+        raise ValueError("invalid_notify_service")
+
+    if value.startswith(_NOTIFY_ENTITY_PREFIX):
+        entity_id = value.removeprefix(_NOTIFY_ENTITY_PREFIX)
+        if entity_id.startswith(f"{NOTIFY_DOMAIN}.") and _SERVICE_NAME_RE.fullmatch(
+            entity_id.removeprefix(f"{NOTIFY_DOMAIN}.")
+        ):
+            return f"{_NOTIFY_ENTITY_PREFIX}{entity_id}"
+        raise ValueError("invalid_notify_service")
+
+    if value.startswith(_NOTIFY_SERVICE_PREFIX):
+        service = normalize_notify_service(value.removeprefix(_NOTIFY_SERVICE_PREFIX))
+        return f"{_NOTIFY_SERVICE_PREFIX}{service}"
+
+    if value.startswith(f"{NOTIFY_DOMAIN}."):
+        suffix = value.removeprefix(f"{NOTIFY_DOMAIN}.")
+        if _SERVICE_NAME_RE.fullmatch(suffix):
+            return f"{_NOTIFY_ENTITY_PREFIX}{value}"
+
+    service = normalize_notify_service(value)
+    return f"{_NOTIFY_SERVICE_PREFIX}{service}"
 
 
 def build_entity_option_label(state: State) -> str:

@@ -26,7 +26,7 @@ def _build_manager(hass: object) -> BatteryInformerManager:
         {
             CONF_WARNING_THRESHOLD: 20,
             CONF_CRITICAL_THRESHOLD: 10,
-            CONF_NOTIFY_SERVICE: "telegram",
+            CONF_NOTIFY_SERVICE: "service:telegram",
             CONF_EXCLUDED_ENTITIES: [],
         },
     )
@@ -64,6 +64,12 @@ async def test_manager_sends_notification_on_level_change() -> None:
     await manager._async_process_state_change(event)
 
     hass.services.async_call.assert_awaited_once()
+    hass.services.async_call.assert_awaited_with(
+        "notify",
+        "telegram",
+        {"message": "Battery low: Front Door Battery (sensor.front_door_battery) is at 19%. Warning threshold: 20%."},
+        blocking=False,
+    )
 
 
 @pytest.mark.asyncio
@@ -98,3 +104,55 @@ async def test_manager_does_not_send_duplicate_notification_within_same_level() 
     await manager._async_process_state_change(event)
 
     hass.services.async_call.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_manager_sends_notification_via_notify_entity() -> None:
+    old_state = State(
+        "sensor.front_door_battery",
+        "35",
+        {
+            ATTR_DEVICE_CLASS: SensorDeviceClass.BATTERY,
+            ATTR_UNIT_OF_MEASUREMENT: "%",
+            ATTR_FRIENDLY_NAME: "Front Door Battery",
+        },
+    )
+    new_state = State(
+        "sensor.front_door_battery",
+        "19",
+        {
+            ATTR_DEVICE_CLASS: SensorDeviceClass.BATTERY,
+            ATTR_UNIT_OF_MEASUREMENT: "%",
+            ATTR_FRIENDLY_NAME: "Front Door Battery",
+        },
+    )
+    hass = SimpleNamespace(
+        services=SimpleNamespace(async_call=AsyncMock()),
+        states=SimpleNamespace(async_all=lambda _domain: [old_state]),
+        async_create_task=lambda coro: coro,
+    )
+    manager = BatteryInformerManager(
+        hass,
+        "entry-1",
+        {
+            CONF_WARNING_THRESHOLD: 20,
+            CONF_CRITICAL_THRESHOLD: 10,
+            CONF_NOTIFY_SERVICE: "entity:notify.mobile_app_pixel",
+            CONF_EXCLUDED_ENTITIES: [],
+        },
+    )
+    manager._initialize_snapshot()
+
+    event = SimpleNamespace(data={"entity_id": new_state.entity_id, "old_state": old_state, "new_state": new_state})
+    await manager._async_process_state_change(event)
+
+    hass.services.async_call.assert_awaited_once()
+    hass.services.async_call.assert_awaited_with(
+        "notify",
+        "send_message",
+        {
+            "entity_id": "notify.mobile_app_pixel",
+            "message": "Battery low: Front Door Battery (sensor.front_door_battery) is at 19%. Warning threshold: 20%.",
+        },
+        blocking=False,
+    )

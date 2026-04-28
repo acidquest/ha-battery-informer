@@ -7,7 +7,12 @@ from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_FRIENDLY_NAME, ATTR_UNIT
 from homeassistant.core import State
 
 from custom_components.battery_informer.const import LEVEL_CRITICAL, LEVEL_NORMAL, LEVEL_WARNING
-from custom_components.battery_informer.detector import classify_battery_level, get_battery_reading, normalize_notify_service
+from custom_components.battery_informer.detector import (
+    classify_battery_level,
+    get_battery_reading,
+    normalize_notify_service,
+    normalize_notify_target,
+)
 from custom_components.battery_informer.i18n import build_localized_level_message
 
 
@@ -22,6 +27,14 @@ def test_normalize_notify_service_rejects_invalid_name() -> None:
         assert str(err) == "invalid_notify_service"
     else:
         raise AssertionError("ValueError was not raised")
+
+
+def test_normalize_notify_target_accepts_legacy_service() -> None:
+    assert normalize_notify_target("telegram") == "service:telegram"
+
+
+def test_normalize_notify_target_accepts_notify_entity() -> None:
+    assert normalize_notify_target("notify.mobile_app_phone") == "entity:notify.mobile_app_phone"
 
 
 def test_get_battery_reading_accepts_valid_battery_sensor() -> None:

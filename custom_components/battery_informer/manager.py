@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 import logging
 
+from homeassistant.components.notify.const import ATTR_MESSAGE, DOMAIN as NOTIFY_DOMAIN, SERVICE_SEND_MESSAGE
 from homeassistant.const import EVENT_STATE_CHANGED
 from homeassistant.core import Event, HomeAssistant, State, callback
 
@@ -28,7 +29,7 @@ class BatteryInformerManager:
         self.entry_id = entry_id
         self.warning_threshold = int(config[CONF_WARNING_THRESHOLD])
         self.critical_threshold = int(config[CONF_CRITICAL_THRESHOLD])
-        self.notify_service = str(config[CONF_NOTIFY_SERVICE])
+        self.notify_target = str(config[CONF_NOTIFY_SERVICE])
         self.excluded_entities = set(config.get(CONF_EXCLUDED_ENTITIES, []))
         self._entity_levels: dict[str, str] = {}
         self._unsubscribe: Callable[[], None] | None = None
@@ -110,15 +111,27 @@ class BatteryInformerManager:
             language=get_hass_language(self.hass),
         )
         LOGGER.debug(
-            "Sending battery notification for %s via notify.%s: %s",
+            "Sending battery notification for %s via %s: %s",
             reading.entity_id,
-            self.notify_service,
+            self.notify_target,
             message,
         )
+        if self.notify_target.startswith("entity:"):
+            await self.hass.services.async_call(
+                NOTIFY_DOMAIN,
+                SERVICE_SEND_MESSAGE,
+                {
+                    "entity_id": self.notify_target.removeprefix("entity:"),
+                    ATTR_MESSAGE: message,
+                },
+                blocking=False,
+            )
+            return
+
         await self.hass.services.async_call(
-            "notify",
-            self.notify_service,
-            {"message": message},
+            NOTIFY_DOMAIN,
+            self.notify_target.removeprefix("service:"),
+            {ATTR_MESSAGE: message},
             blocking=False,
         )
 
