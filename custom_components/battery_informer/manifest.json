@@ -1,0 +1,13 @@
+{
+  "domain": "battery_informer",
+  "name": "Battery Informer",
+  "codeowners": [],
+  "config_flow": true,
+  "documentation": "https://github.com/acidquest/ha-battery-informer",
+  "integration_type": "service",
+  "issue_tracker": "https://github.com/acidquest/ha-battery-informer/issues",
+  "iot_class": "local_push",
+  "loggers": ["custom_components.battery_informer"],
+  "requirements": [],
+  "version": "0.1.0"
+}

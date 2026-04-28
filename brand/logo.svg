@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 320" role="img" aria-labelledby="title desc">
+  <title id="title">Battery Informer logo</title>
+  <desc id="desc">Battery Informer wordmark with battery symbol</desc>
+  <defs>
+    <linearGradient id="card" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#113a5d"/>
+      <stop offset="100%" stop-color="#1b6ca8"/>
+    </linearGradient>
+    <linearGradient id="charge" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffd166"/>
+      <stop offset="100%" stop-color="#ef476f"/>
+    </linearGradient>
+  </defs>
+  <rect width="960" height="320" rx="48" fill="#f5f9fc"/>
+  <g transform="translate(40 40)">
+    <rect width="240" height="240" rx="56" fill="url(#card)"/>
+    <rect x="48" y="72" width="110" height="96" rx="18" fill="url(#charge)"/>
+    <rect x="40" y="64" width="128" height="112" rx="24" fill="none" stroke="#ffffff" stroke-width="14"/>
+    <rect x="172" y="98" width="20" height="44" rx="8" fill="#ffffff"/>
+    <path d="M128 60c28 0 52 24 52 52" fill="none" stroke="#d9f0ff" stroke-linecap="round" stroke-width="14"/>
+    <path d="M130 28c48 0 88 40 88 88" fill="none" stroke="#d9f0ff" stroke-linecap="round" stroke-width="10" opacity="0.72"/>
+  </g>
+  <g fill="#113a5d">
+    <text x="320" y="135" font-family="Verdana, DejaVu Sans, sans-serif" font-size="64" font-weight="700">Battery</text>
+    <text x="320" y="210" font-family="Verdana, DejaVu Sans, sans-serif" font-size="64" font-weight="700">Informer</text>
+    <text x="322" y="254" font-family="Verdana, DejaVu Sans, sans-serif" font-size="24">Home Assistant custom integration for low-battery alerts</text>
+  </g>
+</svg>

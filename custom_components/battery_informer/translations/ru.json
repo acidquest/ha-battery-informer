@@ -1,0 +1,36 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Battery Informer",
+        "description": "Настройка уведомлений о низком заряде батареи.",
+        "data": {
+          "warning_threshold": "Порог предупреждения (%)",
+          "critical_threshold": "Критический порог (%)",
+          "notify_service": "Имя notify сервиса"
+        }
+      }
+    },
+    "error": {
+      "invalid_thresholds": "Критический порог должен быть ниже порога предупреждения",
+      "notify_service_not_found": "Указанный notify сервис не найден",
+      "invalid_notify_service": "Некорректный формат notify сервиса"
+    },
+    "abort": {
+      "already_configured": "Battery Informer уже настроен"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Параметры Battery Informer",
+        "data": {
+          "warning_threshold": "Порог предупреждения (%)",
+          "critical_threshold": "Критический порог (%)",
+          "notify_service": "Имя notify сервиса",
+          "excluded_entities": "Исключённые батарейные сенсоры"
+        }
+      }
+    }
+  }
+}

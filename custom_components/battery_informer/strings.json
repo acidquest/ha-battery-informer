@@ -1,0 +1,36 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Battery Informer",
+        "description": "Configure battery threshold notifications.",
+        "data": {
+          "warning_threshold": "Warning threshold (%)",
+          "critical_threshold": "Critical threshold (%)",
+          "notify_service": "Notify service name"
+        }
+      }
+    },
+    "error": {
+      "invalid_thresholds": "Critical threshold must be lower than warning threshold",
+      "notify_service_not_found": "The selected notify service was not found",
+      "invalid_notify_service": "Invalid notify service format"
+    },
+    "abort": {
+      "already_configured": "Battery Informer is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Battery Informer options",
+        "data": {
+          "warning_threshold": "Warning threshold (%)",
+          "critical_threshold": "Critical threshold (%)",
+          "notify_service": "Notify service name",
+          "excluded_entities": "Excluded battery sensors"
+        }
+      }
+    }
+  }
+}

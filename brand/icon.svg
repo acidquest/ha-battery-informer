@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Battery Informer icon</title>
+  <desc id="desc">Stylized battery with notification pulse</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#113a5d"/>
+      <stop offset="100%" stop-color="#1b6ca8"/>
+    </linearGradient>
+    <linearGradient id="charge" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffd166"/>
+      <stop offset="100%" stop-color="#ef476f"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect x="118" y="162" width="236" height="188" rx="36" fill="none" stroke="#ffffff" stroke-width="28"/>
+  <rect x="356" y="222" width="38" height="68" rx="14" fill="#ffffff"/>
+  <rect x="148" y="192" width="104" height="128" rx="20" fill="url(#charge)"/>
+  <path d="M288 156c42 0 76 34 76 76" fill="none" stroke="#d9f0ff" stroke-linecap="round" stroke-width="24"/>
+  <path d="M288 112c67 0 122 55 122 122" fill="none" stroke="#d9f0ff" stroke-linecap="round" stroke-width="18" opacity="0.72"/>
+</svg>
