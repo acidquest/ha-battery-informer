@@ -305,7 +305,7 @@ class BatteryInformerOptionsFlow(config_entries.OptionsFlow):
     """Manage Battery Informer options."""
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        self.config_entry = config_entry
+        self._config_entry = config_entry
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         errors: dict[str, str] = {}
@@ -329,6 +329,6 @@ class BatteryInformerOptionsFlow(config_entries.OptionsFlow):
 
         return self.async_show_form(
             step_id="init",
-            data_schema=_build_options_schema(self.config_entry, self.hass),
+            data_schema=_build_options_schema(self._config_entry, self.hass),
             errors=errors,
         )
