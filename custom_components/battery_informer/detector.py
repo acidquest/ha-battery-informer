@@ -6,6 +6,10 @@ from dataclasses import dataclass
 import re
 from typing import Any
 
+from homeassistant.components.binary_sensor import (
+    DOMAIN as BINARY_SENSOR_DOMAIN,
+    BinarySensorDeviceClass,
+)
 from homeassistant.components.notify.const import DOMAIN as NOTIFY_DOMAIN
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN, SensorDeviceClass
 from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_FRIENDLY_NAME, ATTR_UNIT_OF_MEASUREMENT
@@ -24,7 +28,9 @@ class BatteryReading:
 
     entity_id: str
     name: str
-    level_percent: int
+    level_percent: int | None
+    is_binary: bool = False
+    low_battery: bool | None = None
 
 
 def normalize_notify_service(raw_service: str) -> str:
@@ -67,27 +73,59 @@ def build_entity_option_label(state: State) -> str:
 
 def get_battery_reading(state: State | None) -> BatteryReading | None:
     """Return a normalized battery reading if the entity is supported."""
-    if state is None or state.domain != SENSOR_DOMAIN:
-        return None
-
-    if state.attributes.get(ATTR_DEVICE_CLASS) != SensorDeviceClass.BATTERY:
-        return None
-
-    raw_value = _parse_percentage(state.state)
-    if raw_value is None:
-        return None
-
-    raw_unit = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT)
-    unit = "" if raw_unit is None else str(raw_unit).strip()
-    if unit not in ALLOWED_BATTERY_UNIT_VALUES:
+    if state is None:
         return None
 
     name = state.attributes.get(ATTR_FRIENDLY_NAME) or state.name or state.entity_id
+
+    if state.domain == SENSOR_DOMAIN:
+        if state.attributes.get(ATTR_DEVICE_CLASS) != SensorDeviceClass.BATTERY:
+            return None
+
+        raw_value = _parse_percentage(state.state)
+        if raw_value is None:
+            return None
+
+        raw_unit = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT)
+        unit = "" if raw_unit is None else str(raw_unit).strip()
+        if unit not in ALLOWED_BATTERY_UNIT_VALUES:
+            return None
+
+        return BatteryReading(
+            entity_id=state.entity_id,
+            name=name,
+            level_percent=raw_value,
+        )
+
+    if state.domain != BINARY_SENSOR_DOMAIN:
+        return None
+
+    if state.attributes.get(ATTR_DEVICE_CLASS) != BinarySensorDeviceClass.BATTERY:
+        return None
+
+    binary_value = _parse_low_battery_state(state.state)
+    if binary_value is None:
+        return None
+
     return BatteryReading(
         entity_id=state.entity_id,
         name=name,
-        level_percent=raw_value,
+        level_percent=None,
+        is_binary=True,
+        low_battery=binary_value,
     )
+
+
+def classify_battery_reading(
+    reading: BatteryReading,
+    warning_threshold: int,
+    critical_threshold: int,
+) -> str:
+    """Classify a normalized battery reading into normal, warning or critical."""
+    if reading.is_binary:
+        return LEVEL_CRITICAL if reading.low_battery else LEVEL_NORMAL
+    assert reading.level_percent is not None
+    return classify_battery_level(reading.level_percent, warning_threshold, critical_threshold)
 
 
 def classify_battery_level(level_percent: int, warning_threshold: int, critical_threshold: int) -> str:
@@ -113,3 +151,14 @@ def _parse_percentage(raw_state: Any) -> int | None:
         return None
 
     return int(round(value))
+
+
+def _parse_low_battery_state(raw_state: Any) -> bool | None:
+    raw = str(raw_state).strip().lower()
+    if raw in {"unknown", "unavailable", "none", ""}:
+        return None
+    if raw in {"on", "true", "1", "yes"}:
+        return True
+    if raw in {"off", "false", "0", "no"}:
+        return False
+    return None

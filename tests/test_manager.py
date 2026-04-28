@@ -13,7 +13,10 @@ from homeassistant.core import State
 from custom_components.battery_informer.const import (
     CONF_CRITICAL_THRESHOLD,
     CONF_EXCLUDED_ENTITIES,
+    CONF_INCLUDED_ENTITIES,
+    CONF_MONITORING_MODE,
     CONF_NOTIFY_SERVICE,
+    CONF_RESCAN_INTERVAL_MINUTES,
     CONF_WARNING_THRESHOLD,
 )
 from custom_components.battery_informer.manager import BatteryInformerManager
@@ -27,6 +30,9 @@ def _build_manager(hass: object) -> BatteryInformerManager:
             CONF_WARNING_THRESHOLD: 20,
             CONF_CRITICAL_THRESHOLD: 10,
             CONF_NOTIFY_SERVICE: "service:telegram",
+            CONF_RESCAN_INTERVAL_MINUTES: 10,
+            CONF_MONITORING_MODE: "all_except_excluded",
+            CONF_INCLUDED_ENTITIES: [],
             CONF_EXCLUDED_ENTITIES: [],
         },
     )
@@ -54,7 +60,7 @@ async def test_manager_sends_notification_on_level_change() -> None:
     )
     hass = SimpleNamespace(
         services=SimpleNamespace(async_call=AsyncMock()),
-        states=SimpleNamespace(async_all=lambda _domain: [old_state]),
+        states=SimpleNamespace(async_all=lambda _domain=None: [old_state]),
         async_create_task=lambda coro: coro,
     )
     manager = _build_manager(hass)
@@ -97,7 +103,7 @@ async def test_manager_does_not_send_duplicate_notification_within_same_level() 
     )
     hass = SimpleNamespace(
         services=SimpleNamespace(async_call=AsyncMock()),
-        states=SimpleNamespace(async_all=lambda _domain: [old_state]),
+        states=SimpleNamespace(async_all=lambda _domain=None: [old_state]),
         async_create_task=lambda coro: coro,
     )
     manager = _build_manager(hass)
@@ -131,7 +137,7 @@ async def test_manager_sends_notification_via_notify_entity() -> None:
     )
     hass = SimpleNamespace(
         services=SimpleNamespace(async_call=AsyncMock()),
-        states=SimpleNamespace(async_all=lambda _domain: [old_state]),
+        states=SimpleNamespace(async_all=lambda _domain=None: [old_state]),
         async_create_task=lambda coro: coro,
     )
     manager = BatteryInformerManager(
@@ -141,6 +147,9 @@ async def test_manager_sends_notification_via_notify_entity() -> None:
             CONF_WARNING_THRESHOLD: 20,
             CONF_CRITICAL_THRESHOLD: 10,
             CONF_NOTIFY_SERVICE: "entity:notify.mobile_app_pixel",
+            CONF_RESCAN_INTERVAL_MINUTES: 10,
+            CONF_MONITORING_MODE: "all_except_excluded",
+            CONF_INCLUDED_ENTITIES: [],
             CONF_EXCLUDED_ENTITIES: [],
         },
     )
@@ -165,7 +174,7 @@ async def test_manager_sends_notification_via_notify_entity() -> None:
 async def test_manager_sends_test_notification() -> None:
     hass = SimpleNamespace(
         services=SimpleNamespace(async_call=AsyncMock()),
-        states=SimpleNamespace(async_all=lambda _domain: []),
+        states=SimpleNamespace(async_all=lambda _domain=None: []),
         async_create_task=lambda coro: coro,
     )
     manager = _build_manager(hass)
@@ -194,6 +203,9 @@ async def test_manager_does_not_add_telegram_payload_for_non_telegram_target() -
             CONF_WARNING_THRESHOLD: 20,
             CONF_CRITICAL_THRESHOLD: 10,
             CONF_NOTIFY_SERVICE: "service:mobile_app_pixel",
+            CONF_RESCAN_INTERVAL_MINUTES: 10,
+            CONF_MONITORING_MODE: "all_except_excluded",
+            CONF_INCLUDED_ENTITIES: [],
             CONF_EXCLUDED_ENTITIES: [],
         },
     )
@@ -204,5 +216,104 @@ async def test_manager_does_not_add_telegram_payload_for_non_telegram_target() -
         "notify",
         "mobile_app_pixel",
         {"message": "hello"},
+        blocking=False,
+    )
+
+
+@pytest.mark.asyncio
+async def test_manager_include_only_mode_ignores_non_included_entity() -> None:
+    old_state = State(
+        "sensor.front_door_battery",
+        "35",
+        {
+            ATTR_DEVICE_CLASS: SensorDeviceClass.BATTERY,
+            ATTR_UNIT_OF_MEASUREMENT: "%",
+            ATTR_FRIENDLY_NAME: "Front Door Battery",
+        },
+    )
+    new_state = State(
+        "sensor.front_door_battery",
+        "19",
+        {
+            ATTR_DEVICE_CLASS: SensorDeviceClass.BATTERY,
+            ATTR_UNIT_OF_MEASUREMENT: "%",
+            ATTR_FRIENDLY_NAME: "Front Door Battery",
+        },
+    )
+    hass = SimpleNamespace(
+        services=SimpleNamespace(async_call=AsyncMock()),
+        states=SimpleNamespace(async_all=lambda _domain=None: [old_state]),
+        async_create_task=lambda coro: coro,
+    )
+    manager = BatteryInformerManager(
+        hass,
+        "entry-1",
+        {
+            CONF_WARNING_THRESHOLD: 20,
+            CONF_CRITICAL_THRESHOLD: 10,
+            CONF_NOTIFY_SERVICE: "service:telegram",
+            CONF_RESCAN_INTERVAL_MINUTES: 10,
+            CONF_MONITORING_MODE: "include_only",
+            CONF_INCLUDED_ENTITIES: [],
+            CONF_EXCLUDED_ENTITIES: [],
+        },
+    )
+    manager._initialize_snapshot()
+
+    event = SimpleNamespace(data={"entity_id": new_state.entity_id, "old_state": old_state, "new_state": new_state})
+    await manager._async_process_state_change(event)
+
+    assert manager.get_summary()["tracked_count"] == 0
+    hass.services.async_call.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_manager_uses_custom_message_template() -> None:
+    old_state = State(
+        "sensor.front_door_battery",
+        "35",
+        {
+            ATTR_DEVICE_CLASS: SensorDeviceClass.BATTERY,
+            ATTR_UNIT_OF_MEASUREMENT: "%",
+            ATTR_FRIENDLY_NAME: "Front Door Battery",
+        },
+    )
+    new_state = State(
+        "sensor.front_door_battery",
+        "19",
+        {
+            ATTR_DEVICE_CLASS: SensorDeviceClass.BATTERY,
+            ATTR_UNIT_OF_MEASUREMENT: "%",
+            ATTR_FRIENDLY_NAME: "Front Door Battery",
+        },
+    )
+    hass = SimpleNamespace(
+        services=SimpleNamespace(async_call=AsyncMock()),
+        states=SimpleNamespace(async_all=lambda _domain=None: [old_state]),
+        async_create_task=lambda coro: coro,
+    )
+    manager = BatteryInformerManager(
+        hass,
+        "entry-1",
+        {
+            CONF_WARNING_THRESHOLD: 20,
+            CONF_CRITICAL_THRESHOLD: 10,
+            CONF_NOTIFY_SERVICE: "service:telegram",
+            CONF_RESCAN_INTERVAL_MINUTES: 10,
+            CONF_MONITORING_MODE: "all_except_excluded",
+            CONF_INCLUDED_ENTITIES: [],
+            CONF_EXCLUDED_ENTITIES: [],
+            "warning_template": "Warn {name} {level} {status}",
+        },
+    )
+    manager._initialize_snapshot()
+
+    event = SimpleNamespace(data={"entity_id": new_state.entity_id, "old_state": old_state, "new_state": new_state})
+    await manager._async_process_state_change(event)
+
+    hass.services.async_call.assert_awaited_once_with(
+        "notify",
+        "telegram",
+        {"message": "Warn Front Door Battery 19% warning", "data": {"parse_mode": "html"}},
         blocking=False,
     )

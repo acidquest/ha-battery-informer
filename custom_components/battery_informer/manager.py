@@ -3,21 +3,29 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import timedelta
 import logging
 
 from homeassistant.components.notify.const import ATTR_MESSAGE, DOMAIN as NOTIFY_DOMAIN, SERVICE_SEND_MESSAGE
 from homeassistant.const import EVENT_STATE_CHANGED
 from homeassistant.core import Event, HomeAssistant, State, callback
+from homeassistant.helpers.event import async_track_time_interval
 
 from .const import (
     CONF_CRITICAL_THRESHOLD,
     CONF_EXCLUDED_ENTITIES,
+    CONF_INCLUDED_ENTITIES,
+    CONF_MONITORING_MODE,
     CONF_NOTIFY_SERVICE,
+    CONF_RESCAN_INTERVAL_MINUTES,
+    CONF_CRITICAL_TEMPLATE,
+    CONF_RECOVERY_TEMPLATE,
     CONF_WARNING_THRESHOLD,
+    CONF_WARNING_TEMPLATE,
     LEVEL_CRITICAL,
     LEVEL_WARNING,
 )
-from .detector import BatteryReading, classify_battery_level, get_battery_reading
+from .detector import BatteryReading, classify_battery_reading, get_battery_reading
 from .i18n import build_localized_level_message, get_hass_language
 
 LOGGER = logging.getLogger(__name__)
@@ -31,33 +39,48 @@ class BatteryInformerManager:
         self.entry_id = entry_id
         self.warning_threshold = int(config[CONF_WARNING_THRESHOLD])
         self.critical_threshold = int(config[CONF_CRITICAL_THRESHOLD])
+        self.rescan_interval_minutes = int(config[CONF_RESCAN_INTERVAL_MINUTES])
+        self.monitoring_mode = str(config.get(CONF_MONITORING_MODE, "all_except_excluded"))
         self.notify_target = str(config[CONF_NOTIFY_SERVICE])
         self.excluded_entities = set(config.get(CONF_EXCLUDED_ENTITIES, []))
+        self.included_entities = set(config.get(CONF_INCLUDED_ENTITIES, []))
+        self.warning_template = str(config.get(CONF_WARNING_TEMPLATE, ""))
+        self.critical_template = str(config.get(CONF_CRITICAL_TEMPLATE, ""))
+        self.recovery_template = str(config.get(CONF_RECOVERY_TEMPLATE, ""))
         self._entity_levels: dict[str, str] = {}
         self._listeners: list[Callable[[], None]] = []
         self._unsubscribe: Callable[[], None] | None = None
+        self._unsubscribe_rescan: Callable[[], None] | None = None
 
     async def async_start(self) -> None:
         """Initialize state and subscribe to entity changes."""
         self._initialize_snapshot()
         self._unsubscribe = self.hass.bus.async_listen(EVENT_STATE_CHANGED, self._handle_state_change_event)
+        self._unsubscribe_rescan = async_track_time_interval(
+            self.hass,
+            self._async_handle_periodic_rescan,
+            timedelta(minutes=self.rescan_interval_minutes),
+        )
 
     async def async_stop(self) -> None:
         """Stop monitoring."""
         if self._unsubscribe is not None:
             self._unsubscribe()
             self._unsubscribe = None
+        if self._unsubscribe_rescan is not None:
+            self._unsubscribe_rescan()
+            self._unsubscribe_rescan = None
         self._listeners.clear()
 
     def _initialize_snapshot(self) -> None:
         """Build the initial tracked entity state without notifications."""
         self._entity_levels.clear()
-        for state in self.hass.states.async_all("sensor"):
+        for state in self.hass.states.async_all():
             reading = get_battery_reading(state)
-            if reading is None or reading.entity_id in self.excluded_entities:
+            if reading is None or not self._is_entity_selected(reading.entity_id):
                 continue
-            self._entity_levels[reading.entity_id] = classify_battery_level(
-                reading.level_percent,
+            self._entity_levels[reading.entity_id] = classify_battery_reading(
+                reading,
                 self.warning_threshold,
                 self.critical_threshold,
             )
@@ -68,6 +91,10 @@ class BatteryInformerManager:
         """Schedule processing for a state change."""
         self.hass.async_create_task(self._async_process_state_change(event))
 
+    async def _async_handle_periodic_rescan(self, _now) -> None:
+        """Periodically refresh the full battery sensor snapshot."""
+        self._initialize_snapshot()
+
     async def _async_process_state_change(self, event: Event) -> None:
         """Process a single entity state change."""
         entity_id = event.data.get("entity_id")
@@ -77,12 +104,16 @@ class BatteryInformerManager:
         old_state = event.data.get("old_state")
         new_state = event.data.get("new_state")
 
-        if entity_id in self.excluded_entities:
+        if not self._is_entity_selected(entity_id):
             self._entity_levels.pop(entity_id, None)
             self._notify_listeners()
             return
 
-        should_inspect = entity_id.startswith("sensor.") or entity_id in self._entity_levels
+        should_inspect = (
+            entity_id.startswith("sensor.")
+            or entity_id.startswith("binary_sensor.")
+            or entity_id in self._entity_levels
+        )
         if not should_inspect:
             return
 
@@ -92,8 +123,8 @@ class BatteryInformerManager:
             self._notify_listeners()
             return
 
-        new_level = classify_battery_level(
-            reading.level_percent,
+        new_level = classify_battery_reading(
+            reading,
             self.warning_threshold,
             self.critical_threshold,
         )
@@ -117,6 +148,9 @@ class BatteryInformerManager:
             warning_threshold=self.warning_threshold,
             critical_threshold=self.critical_threshold,
             language=get_hass_language(self.hass),
+            warning_template=self.warning_template,
+            critical_template=self.critical_template,
+            recovery_template=self.recovery_template,
         )
         LOGGER.debug(
             "Sending battery notification for %s via %s: %s",
@@ -169,6 +203,8 @@ class BatteryInformerManager:
             "warning_count": sum(1 for item in batteries if item["status"] == LEVEL_WARNING),
             "critical_count": sum(1 for item in batteries if item["status"] == LEVEL_CRITICAL),
             "excluded_entities": sorted(self.excluded_entities),
+            "included_entities": sorted(self.included_entities),
+            "monitoring_mode": self.monitoring_mode,
             "batteries": batteries,
         }
 
@@ -198,6 +234,12 @@ class BatteryInformerManager:
         """Notify listeners that tracked battery data changed."""
         for listener in tuple(self._listeners):
             listener()
+
+    def _is_entity_selected(self, entity_id: str) -> bool:
+        """Return whether an entity should be monitored."""
+        if self.monitoring_mode == "include_only":
+            return entity_id in self.included_entities
+        return entity_id not in self.excluded_entities
 
     def _build_notify_payload(self, message: str) -> dict[str, object]:
         """Build notify payload for the configured target."""

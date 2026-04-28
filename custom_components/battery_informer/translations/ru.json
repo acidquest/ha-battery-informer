@@ -7,7 +7,12 @@
         "data": {
           "warning_threshold": "Порог предупреждения (%)",
           "critical_threshold": "Критический порог (%)",
-          "notify_service": "Notify сервис"
+          "notify_service": "Notify сервис",
+          "rescan_interval_minutes": "Интервал полного пересканирования (минуты)",
+          "monitoring_mode": "Режим мониторинга",
+          "warning_template": "Шаблон warning-сообщения",
+          "critical_template": "Шаблон critical-сообщения",
+          "recovery_template": "Шаблон recovery-сообщения"
         }
       }
     },
@@ -28,7 +33,13 @@
           "warning_threshold": "Порог предупреждения (%)",
           "critical_threshold": "Критический порог (%)",
           "notify_service": "Notify сервис",
-          "excluded_entities": "Исключённые батарейные сенсоры"
+          "rescan_interval_minutes": "Интервал полного пересканирования (минуты)",
+          "monitoring_mode": "Режим мониторинга",
+          "excluded_entities": "Исключённые батарейные сущности",
+          "included_entities": "Включённые батарейные сущности",
+          "warning_template": "Шаблон warning-сообщения",
+          "critical_template": "Шаблон critical-сообщения",
+          "recovery_template": "Шаблон recovery-сообщения"
         }
       }
     }

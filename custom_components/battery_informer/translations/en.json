@@ -7,7 +7,12 @@
         "data": {
           "warning_threshold": "Warning threshold (%)",
           "critical_threshold": "Critical threshold (%)",
-          "notify_service": "Notify service"
+          "notify_service": "Notify service",
+          "rescan_interval_minutes": "Full rescan interval (minutes)",
+          "monitoring_mode": "Monitoring mode",
+          "warning_template": "Warning message template",
+          "critical_template": "Critical message template",
+          "recovery_template": "Recovery message template"
         }
       }
     },
@@ -28,7 +33,13 @@
           "warning_threshold": "Warning threshold (%)",
           "critical_threshold": "Critical threshold (%)",
           "notify_service": "Notify service",
-          "excluded_entities": "Excluded battery sensors"
+          "rescan_interval_minutes": "Full rescan interval (minutes)",
+          "monitoring_mode": "Monitoring mode",
+          "excluded_entities": "Excluded battery entities",
+          "included_entities": "Included battery entities",
+          "warning_template": "Warning message template",
+          "critical_template": "Critical message template",
+          "recovery_template": "Recovery message template"
         }
       }
     }

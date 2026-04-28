@@ -108,7 +108,7 @@ def test_validate_notify_service_resolves_legacy_service() -> None:
 
 def test_build_options_schema_normalizes_legacy_notify_default() -> None:
     hass = SimpleNamespace(
-        states=SimpleNamespace(async_all=lambda _domain: []),
+        states=SimpleNamespace(async_all=lambda _domain=None: []),
         services=SimpleNamespace(
             async_services=lambda: {
                 "notify": {
@@ -123,6 +123,7 @@ def test_build_options_schema_normalizes_legacy_notify_default() -> None:
             "warning_threshold": 20,
             "critical_threshold": 10,
             "notify_service": "telegram",
+            "rescan_interval_minutes": 10,
             "excluded_entities": [],
         },
     )
@@ -138,3 +139,7 @@ def test_build_options_schema_normalizes_legacy_notify_default() -> None:
         key for key in schema.schema if getattr(key, "schema", None) == "notify_service"
     )
     assert notify_marker.default() == "service:telegram"
+    rescan_marker = next(
+        key for key in schema.schema if getattr(key, "schema", None) == "rescan_interval_minutes"
+    )
+    assert rescan_marker.default() == 10

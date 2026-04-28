@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.components.sensor import SensorDeviceClass
 from homeassistant.const import ATTR_DEVICE_CLASS, ATTR_FRIENDLY_NAME, ATTR_UNIT_OF_MEASUREMENT
 from homeassistant.core import State
 
 from custom_components.battery_informer.const import LEVEL_CRITICAL, LEVEL_NORMAL, LEVEL_WARNING
 from custom_components.battery_informer.detector import (
+    classify_battery_reading,
     classify_battery_level,
     get_battery_reading,
     normalize_notify_service,
@@ -66,6 +68,39 @@ def test_get_battery_reading_rejects_non_percentage_unit() -> None:
     )
 
     assert get_battery_reading(state) is None
+
+
+def test_get_battery_reading_accepts_binary_low_battery_sensor() -> None:
+    state = State(
+        "binary_sensor.window_remote_battery_low",
+        "on",
+        {
+            ATTR_DEVICE_CLASS: BinarySensorDeviceClass.BATTERY,
+            ATTR_FRIENDLY_NAME: "Window Remote Battery Low",
+        },
+    )
+
+    reading = get_battery_reading(state)
+
+    assert reading is not None
+    assert reading.is_binary is True
+    assert reading.low_battery is True
+    assert reading.level_percent is None
+
+
+def test_classify_battery_reading_marks_binary_low_battery_as_critical() -> None:
+    state = State(
+        "binary_sensor.window_remote_battery_low",
+        "on",
+        {
+            ATTR_DEVICE_CLASS: BinarySensorDeviceClass.BATTERY,
+            ATTR_FRIENDLY_NAME: "Window Remote Battery Low",
+        },
+    )
+    reading = get_battery_reading(state)
+
+    assert reading is not None
+    assert classify_battery_reading(reading, 20, 10) == LEVEL_CRITICAL
 
 
 def test_classify_battery_level_uses_warning_and_critical_boundaries() -> None:

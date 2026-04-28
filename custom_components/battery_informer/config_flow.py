@@ -22,16 +22,30 @@ from homeassistant.helpers.selector import (
     SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
+    TextSelector,
+    TextSelectorConfig,
 )
 
 from .const import (
     CONF_CRITICAL_THRESHOLD,
+    CONF_CRITICAL_TEMPLATE,
     CONF_EXCLUDED_ENTITIES,
+    CONF_INCLUDED_ENTITIES,
+    CONF_MONITORING_MODE,
     CONF_NOTIFY_SERVICE,
+    CONF_RESCAN_INTERVAL_MINUTES,
+    CONF_RECOVERY_TEMPLATE,
     CONF_WARNING_THRESHOLD,
+    CONF_WARNING_TEMPLATE,
     DEFAULT_CRITICAL_THRESHOLD,
+    DEFAULT_CRITICAL_TEMPLATE,
     DEFAULT_EXCLUDED_ENTITIES,
+    DEFAULT_INCLUDED_ENTITIES,
+    DEFAULT_MONITORING_MODE,
+    DEFAULT_RECOVERY_TEMPLATE,
+    DEFAULT_RESCAN_INTERVAL_MINUTES,
     DEFAULT_WARNING_THRESHOLD,
+    DEFAULT_WARNING_TEMPLATE,
     DOMAIN,
 )
 from .detector import (
@@ -122,6 +136,64 @@ def _build_notify_service_selector(
     )
 
 
+def _get_battery_entity_options(
+    hass: HomeAssistant,
+    selected_entities: list[str],
+) -> list[SelectOptionDict]:
+    options: list[SelectOptionDict] = []
+    for state in hass.states.async_all():
+        reading = get_battery_reading(state)
+        if reading is None:
+            continue
+        options.append(
+            SelectOptionDict(
+                value=state.entity_id,
+                label=build_entity_option_label(state),
+            )
+        )
+
+    for entity_id in sorted(set(selected_entities) - {option["value"] for option in options}):
+        options.append(SelectOptionDict(value=entity_id, label=entity_id))
+
+    options.sort(key=lambda option: option["label"])
+    return options
+
+
+def _build_battery_entity_selector(
+    hass: HomeAssistant,
+    selected_entities: list[str],
+) -> SelectSelector:
+    return SelectSelector(
+        SelectSelectorConfig(
+            options=_get_battery_entity_options(hass, selected_entities),
+            multiple=True,
+            mode="dropdown",
+        )
+    )
+
+
+def _build_monitoring_mode_selector(current_mode: str) -> SelectSelector:
+    return SelectSelector(
+        SelectSelectorConfig(
+            options=[
+                SelectOptionDict(
+                    value="all_except_excluded",
+                    label="Monitor all except excluded",
+                ),
+                SelectOptionDict(
+                    value="include_only",
+                    label="Monitor included entities only",
+                ),
+            ],
+            mode="dropdown",
+        )
+    )
+
+
+def _build_template_selector() -> TextSelector:
+    return TextSelector(TextSelectorConfig(multiline=True))
+
+
 def _normalize_notify_target_for_form(current_target: str) -> str:
     """Normalize stored notify target for selector defaults."""
     try:
@@ -136,6 +208,11 @@ def _build_common_schema(
     warning_threshold: int,
     critical_threshold: int,
     notify_service: str,
+    rescan_interval_minutes: int,
+    monitoring_mode: str,
+    warning_template: str,
+    critical_template: str,
+    recovery_template: str,
 ) -> vol.Schema:
     normalized_notify_service = _normalize_notify_target_for_form(notify_service)
     return vol.Schema(
@@ -150,6 +227,26 @@ def _build_common_schema(
                 hass,
                 normalized_notify_service,
             ),
+            vol.Required(
+                CONF_RESCAN_INTERVAL_MINUTES,
+                default=rescan_interval_minutes,
+            ): NumberSelector(NumberSelectorConfig(min=1, max=1440, mode="box")),
+            vol.Required(
+                CONF_MONITORING_MODE,
+                default=monitoring_mode,
+            ): _build_monitoring_mode_selector(monitoring_mode),
+            vol.Optional(
+                CONF_WARNING_TEMPLATE,
+                default=warning_template,
+            ): _build_template_selector(),
+            vol.Optional(
+                CONF_CRITICAL_TEMPLATE,
+                default=critical_template,
+            ): _build_template_selector(),
+            vol.Optional(
+                CONF_RECOVERY_TEMPLATE,
+                default=recovery_template,
+            ): _build_template_selector(),
         }
     )
 
@@ -158,25 +255,26 @@ def _build_excluded_entities_selector(
     hass: HomeAssistant,
     selected_entities: list[str],
 ) -> SelectSelector:
-    options: list[SelectOptionDict] = []
-    for state in hass.states.async_all("sensor"):
-        reading = get_battery_reading(state)
-        if reading is None:
-            continue
-        options.append(SelectOptionDict(value=state.entity_id, label=build_entity_option_label(state)))
-
-    for entity_id in sorted(set(selected_entities) - {option["value"] for option in options}):
-        options.append(SelectOptionDict(value=entity_id, label=entity_id))
-
-    options.sort(key=lambda option: option["label"])
-    return SelectSelector(SelectSelectorConfig(options=options, multiple=True, mode="dropdown"))
+    return _build_battery_entity_selector(hass, selected_entities)
 
 
 def _build_options_schema(config_entry: config_entries.ConfigEntry, hass: HomeAssistant) -> vol.Schema:
+    monitoring_mode = str(
+        config_entry.options.get(
+            CONF_MONITORING_MODE,
+            config_entry.data.get(CONF_MONITORING_MODE, DEFAULT_MONITORING_MODE),
+        )
+    )
     selected_entities = list(
         config_entry.options.get(
             CONF_EXCLUDED_ENTITIES,
             config_entry.data.get(CONF_EXCLUDED_ENTITIES, []),
+        )
+    )
+    included_entities = list(
+        config_entry.options.get(
+            CONF_INCLUDED_ENTITIES,
+            config_entry.data.get(CONF_INCLUDED_ENTITIES, DEFAULT_INCLUDED_ENTITIES),
         )
     )
     notify_service = str(
@@ -210,10 +308,54 @@ def _build_options_schema(config_entry: config_entries.ConfigEntry, hass: HomeAs
                 CONF_NOTIFY_SERVICE,
                 default=normalized_notify_service,
             ): _build_notify_service_selector(hass, normalized_notify_service),
+            vol.Required(
+                CONF_RESCAN_INTERVAL_MINUTES,
+                default=config_entry.options.get(
+                    CONF_RESCAN_INTERVAL_MINUTES,
+                    config_entry.data.get(
+                        CONF_RESCAN_INTERVAL_MINUTES, DEFAULT_RESCAN_INTERVAL_MINUTES
+                    ),
+                ),
+            ): NumberSelector(NumberSelectorConfig(min=1, max=1440, mode="box")),
+            vol.Required(
+                CONF_MONITORING_MODE,
+                default=monitoring_mode,
+            ): _build_monitoring_mode_selector(monitoring_mode),
             vol.Required(CONF_EXCLUDED_ENTITIES, default=selected_entities): _build_excluded_entities_selector(
                 hass,
                 selected_entities,
             ),
+            vol.Required(CONF_INCLUDED_ENTITIES, default=included_entities): _build_battery_entity_selector(
+                hass,
+                included_entities,
+            ),
+            vol.Optional(
+                CONF_WARNING_TEMPLATE,
+                default=str(
+                    config_entry.options.get(
+                        CONF_WARNING_TEMPLATE,
+                        config_entry.data.get(CONF_WARNING_TEMPLATE, DEFAULT_WARNING_TEMPLATE),
+                    )
+                ),
+            ): _build_template_selector(),
+            vol.Optional(
+                CONF_CRITICAL_TEMPLATE,
+                default=str(
+                    config_entry.options.get(
+                        CONF_CRITICAL_TEMPLATE,
+                        config_entry.data.get(CONF_CRITICAL_TEMPLATE, DEFAULT_CRITICAL_TEMPLATE),
+                    )
+                ),
+            ): _build_template_selector(),
+            vol.Optional(
+                CONF_RECOVERY_TEMPLATE,
+                default=str(
+                    config_entry.options.get(
+                        CONF_RECOVERY_TEMPLATE,
+                        config_entry.data.get(CONF_RECOVERY_TEMPLATE, DEFAULT_RECOVERY_TEMPLATE),
+                    )
+                ),
+            ): _build_template_selector(),
         }
     )
 
@@ -279,7 +421,13 @@ class BatteryInformerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_WARNING_THRESHOLD: int(user_input[CONF_WARNING_THRESHOLD]),
                         CONF_CRITICAL_THRESHOLD: int(user_input[CONF_CRITICAL_THRESHOLD]),
                         CONF_NOTIFY_SERVICE: notify_service,
+                        CONF_RESCAN_INTERVAL_MINUTES: int(user_input[CONF_RESCAN_INTERVAL_MINUTES]),
+                        CONF_MONITORING_MODE: str(user_input[CONF_MONITORING_MODE]),
                         CONF_EXCLUDED_ENTITIES: DEFAULT_EXCLUDED_ENTITIES,
+                        CONF_INCLUDED_ENTITIES: DEFAULT_INCLUDED_ENTITIES,
+                        CONF_WARNING_TEMPLATE: str(user_input.get(CONF_WARNING_TEMPLATE, "")).strip(),
+                        CONF_CRITICAL_TEMPLATE: str(user_input.get(CONF_CRITICAL_TEMPLATE, "")).strip(),
+                        CONF_RECOVERY_TEMPLATE: str(user_input.get(CONF_RECOVERY_TEMPLATE, "")).strip(),
                     },
                 )
 
@@ -296,6 +444,11 @@ class BatteryInformerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     ),
                     "",
                 ),
+                rescan_interval_minutes=DEFAULT_RESCAN_INTERVAL_MINUTES,
+                monitoring_mode=DEFAULT_MONITORING_MODE,
+                warning_template=DEFAULT_WARNING_TEMPLATE,
+                critical_template=DEFAULT_CRITICAL_TEMPLATE,
+                recovery_template=DEFAULT_RECOVERY_TEMPLATE,
             ),
             errors=errors,
         )
@@ -323,7 +476,13 @@ class BatteryInformerOptionsFlow(config_entries.OptionsFlow):
                         CONF_WARNING_THRESHOLD: int(user_input[CONF_WARNING_THRESHOLD]),
                         CONF_CRITICAL_THRESHOLD: int(user_input[CONF_CRITICAL_THRESHOLD]),
                         CONF_NOTIFY_SERVICE: notify_service,
+                        CONF_RESCAN_INTERVAL_MINUTES: int(user_input[CONF_RESCAN_INTERVAL_MINUTES]),
+                        CONF_MONITORING_MODE: str(user_input[CONF_MONITORING_MODE]),
                         CONF_EXCLUDED_ENTITIES: sorted(set(user_input.get(CONF_EXCLUDED_ENTITIES, []))),
+                        CONF_INCLUDED_ENTITIES: sorted(set(user_input.get(CONF_INCLUDED_ENTITIES, []))),
+                        CONF_WARNING_TEMPLATE: str(user_input.get(CONF_WARNING_TEMPLATE, "")).strip(),
+                        CONF_CRITICAL_TEMPLATE: str(user_input.get(CONF_CRITICAL_TEMPLATE, "")).strip(),
+                        CONF_RECOVERY_TEMPLATE: str(user_input.get(CONF_RECOVERY_TEMPLATE, "")).strip(),
                     },
                 )
 

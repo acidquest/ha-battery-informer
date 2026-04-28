@@ -12,11 +12,16 @@
 - сенсор `Tracked batteries` с атрибутами по всем найденным батарейкам
 - сенсор `Critical batteries` с атрибутами по батарейкам в критическом уровне
 - локальные PNG-ассеты брендинга внутри `custom_components/battery_informer/brand/`
+- настраиваемый параметр `Full rescan interval (minutes)` для периодического полного поиска батареек
+- поддержка `binary_sensor` low-battery
+- настраиваемые шаблоны уведомлений через UI
+- режим мониторинга `include only`
 
 ### Changed
 
 - выбор notify-цели в UI теперь поддерживает `notify` entities и legacy `notify.<service>`
 - валидация notify-цели переведена на entity registry и legacy service lookup
+- поиск батареек теперь совмещает стартовый snapshot, `state_changed` и периодический full rescan
 
 ## [0.1.0] - 2026-04-27
 
