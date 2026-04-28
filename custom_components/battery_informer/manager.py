@@ -274,10 +274,14 @@ class BatteryInformerManager:
 
     def _build_notify_payload(self, message: str) -> dict[str, object]:
         """Build notify payload for the configured target."""
-        payload: dict[str, object] = {ATTR_MESSAGE: message}
         if "telegram" in self.notify_target:
-            payload["data"] = {"parse_mode": "html"}
-        return payload
+            message = self._escape_telegram_message(message)
+        return {ATTR_MESSAGE: message}
+
+    @staticmethod
+    def _escape_telegram_message(message: str) -> str:
+        """Escape characters that Telegram may interpret as formatting."""
+        return message.replace("\\", "\\\\").replace("_", "\\_")
 
     @staticmethod
     def _lowest_battery_sort_key(item: tuple[BatteryReading, str]) -> tuple[int, int, str]:

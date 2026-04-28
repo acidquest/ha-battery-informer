@@ -74,8 +74,7 @@ async def test_manager_sends_notification_on_level_change() -> None:
         "notify",
         "telegram",
         {
-            "message": "Battery low: Front Door Battery (sensor.front_door_battery) is at 19%. Warning threshold: 20%.",
-            "data": {"parse_mode": "html"},
+            "message": "Battery low: Front Door Battery (sensor.front\\_door\\_battery) is at 19%. Warning threshold: 20%.",
         },
         blocking=False,
     )
@@ -196,8 +195,7 @@ async def test_manager_sends_lowest_battery_notification() -> None:
         "notify",
         "telegram",
         {
-            "message": "Lowest tracked battery: Front Door Battery (sensor.front_door_battery) is at 19%. Current status: warning.",
-            "data": {"parse_mode": "html"},
+            "message": "Lowest tracked battery: Front Door Battery (sensor.front\\_door\\_battery) is at 19%. Current status: warning.",
         },
         blocking=False,
     )
@@ -273,8 +271,7 @@ async def test_manager_localizes_lowest_battery_notification_message() -> None:
         "notify",
         "telegram",
         {
-            "message": "Самая разряженная батарея: Front Door Battery (sensor.front_door_battery) имеет 9%. Текущий статус: критический.",
-            "data": {"parse_mode": "html"},
+            "message": "Самая разряженная батарея: Front Door Battery (sensor.front\\_door\\_battery) имеет 9%. Текущий статус: критический.",
         },
         blocking=False,
     )
@@ -374,6 +371,6 @@ async def test_manager_uses_custom_message_template() -> None:
     hass.services.async_call.assert_awaited_once_with(
         "notify",
         "telegram",
-        {"message": "Warn Front Door Battery 19% warning", "data": {"parse_mode": "html"}},
+        {"message": "Warn Front Door Battery 19% warning"},
         blocking=False,
     )
