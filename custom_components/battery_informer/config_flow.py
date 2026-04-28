@@ -122,6 +122,14 @@ def _build_notify_service_selector(
     )
 
 
+def _normalize_notify_target_for_form(current_target: str) -> str:
+    """Normalize stored notify target for selector defaults."""
+    try:
+        return normalize_notify_target(current_target)
+    except ValueError:
+        return current_target
+
+
 def _build_common_schema(
     hass: HomeAssistant,
     *,
@@ -129,6 +137,7 @@ def _build_common_schema(
     critical_threshold: int,
     notify_service: str,
 ) -> vol.Schema:
+    normalized_notify_service = _normalize_notify_target_for_form(notify_service)
     return vol.Schema(
         {
             vol.Required(CONF_WARNING_THRESHOLD, default=warning_threshold): NumberSelector(
@@ -137,9 +146,9 @@ def _build_common_schema(
             vol.Required(CONF_CRITICAL_THRESHOLD, default=critical_threshold): NumberSelector(
                 NumberSelectorConfig(min=1, max=100, mode="box")
             ),
-            vol.Required(CONF_NOTIFY_SERVICE, default=notify_service): _build_notify_service_selector(
+            vol.Required(CONF_NOTIFY_SERVICE, default=normalized_notify_service): _build_notify_service_selector(
                 hass,
-                notify_service,
+                normalized_notify_service,
             ),
         }
     )
@@ -176,6 +185,7 @@ def _build_options_schema(config_entry: config_entries.ConfigEntry, hass: HomeAs
             config_entry.data.get(CONF_NOTIFY_SERVICE, ""),
         )
     )
+    normalized_notify_service = _normalize_notify_target_for_form(notify_service)
     return vol.Schema(
         {
             vol.Required(
@@ -198,8 +208,8 @@ def _build_options_schema(config_entry: config_entries.ConfigEntry, hass: HomeAs
             ): NumberSelector(NumberSelectorConfig(min=1, max=100, mode="box")),
             vol.Required(
                 CONF_NOTIFY_SERVICE,
-                default=notify_service,
-            ): _build_notify_service_selector(hass, notify_service),
+                default=normalized_notify_service,
+            ): _build_notify_service_selector(hass, normalized_notify_service),
             vol.Required(CONF_EXCLUDED_ENTITIES, default=selected_entities): _build_excluded_entities_selector(
                 hass,
                 selected_entities,

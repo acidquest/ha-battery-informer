@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from custom_components.battery_informer.config_flow import (
+    _build_options_schema,
     _get_notify_service_options,
     _validate_notify_service,
 )
@@ -103,3 +104,37 @@ def test_validate_notify_service_resolves_legacy_service() -> None:
         return_value=entity_registry,
     ):
         assert _validate_notify_service(hass, "notify.telegram") == "service:telegram"
+
+
+def test_build_options_schema_normalizes_legacy_notify_default() -> None:
+    hass = SimpleNamespace(
+        states=SimpleNamespace(async_all=lambda _domain: []),
+        services=SimpleNamespace(
+            async_services=lambda: {
+                "notify": {
+                    "telegram": object(),
+                }
+            }
+        )
+    )
+    config_entry = SimpleNamespace(
+        options={},
+        data={
+            "warning_threshold": 20,
+            "critical_threshold": 10,
+            "notify_service": "telegram",
+            "excluded_entities": [],
+        },
+    )
+    entity_registry = SimpleNamespace(entities={})
+
+    with patch(
+        "custom_components.battery_informer.config_flow.er.async_get",
+        return_value=entity_registry,
+    ):
+        schema = _build_options_schema(config_entry, hass)
+
+    notify_marker = next(
+        key for key in schema.schema if getattr(key, "schema", None) == "notify_service"
+    )
+    assert notify_marker.default() == "service:telegram"

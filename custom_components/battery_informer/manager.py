@@ -174,13 +174,14 @@ class BatteryInformerManager:
 
     async def _async_send_raw_notification(self, message: str) -> None:
         """Deliver a raw notification through the configured target."""
+        payload = self._build_notify_payload(message)
         if self.notify_target.startswith("entity:"):
             await self.hass.services.async_call(
                 NOTIFY_DOMAIN,
                 SERVICE_SEND_MESSAGE,
                 {
                     "entity_id": self.notify_target.removeprefix("entity:"),
-                    ATTR_MESSAGE: message,
+                    **payload,
                 },
                 blocking=False,
             )
@@ -189,7 +190,7 @@ class BatteryInformerManager:
         await self.hass.services.async_call(
             NOTIFY_DOMAIN,
             self.notify_target.removeprefix("service:"),
-            {ATTR_MESSAGE: message},
+            payload,
             blocking=False,
         )
 
@@ -197,6 +198,13 @@ class BatteryInformerManager:
         """Notify listeners that tracked battery data changed."""
         for listener in tuple(self._listeners):
             listener()
+
+    def _build_notify_payload(self, message: str) -> dict[str, object]:
+        """Build notify payload for the configured target."""
+        payload: dict[str, object] = {ATTR_MESSAGE: message}
+        if "telegram" in self.notify_target:
+            payload["data"] = {"parse_mode": "html"}
+        return payload
 
     @staticmethod
     def _states_are_equivalent(old_state: object, new_state: object) -> bool:

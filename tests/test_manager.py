@@ -67,7 +67,10 @@ async def test_manager_sends_notification_on_level_change() -> None:
     hass.services.async_call.assert_awaited_with(
         "notify",
         "telegram",
-        {"message": "Battery low: Front Door Battery (sensor.front_door_battery) is at 19%. Warning threshold: 20%."},
+        {
+            "message": "Battery low: Front Door Battery (sensor.front_door_battery) is at 19%. Warning threshold: 20%.",
+            "data": {"parse_mode": "html"},
+        },
         blocking=False,
     )
 
@@ -172,6 +175,34 @@ async def test_manager_sends_test_notification() -> None:
     hass.services.async_call.assert_awaited_once_with(
         "notify",
         "telegram",
+        {"message": "hello", "data": {"parse_mode": "html"}},
+        blocking=False,
+    )
+
+
+@pytest.mark.asyncio
+async def test_manager_does_not_add_telegram_payload_for_non_telegram_target() -> None:
+    hass = SimpleNamespace(
+        services=SimpleNamespace(async_call=AsyncMock()),
+        states=SimpleNamespace(async_all=lambda _domain: []),
+        async_create_task=lambda coro: coro,
+    )
+    manager = BatteryInformerManager(
+        hass,
+        "entry-1",
+        {
+            CONF_WARNING_THRESHOLD: 20,
+            CONF_CRITICAL_THRESHOLD: 10,
+            CONF_NOTIFY_SERVICE: "service:mobile_app_pixel",
+            CONF_EXCLUDED_ENTITIES: [],
+        },
+    )
+
+    await manager.async_send_test_notification("hello")
+
+    hass.services.async_call.assert_awaited_once_with(
+        "notify",
+        "mobile_app_pixel",
         {"message": "hello"},
         blocking=False,
     )
