@@ -20,7 +20,8 @@
       "invalid_thresholds": "Critical threshold must be lower than warning threshold",
       "notify_service_not_found": "The selected notify service was not found",
       "invalid_notify_service": "Invalid notify service format",
-      "no_batteries_found": "No tracked batteries were found for sending a verification notification"
+      "no_batteries_found": "No tracked batteries were found for sending a verification notification",
+      "send_preview_failed": "Failed to send the verification notification"
     },
     "abort": {
       "already_configured": "Battery Informer is already configured"

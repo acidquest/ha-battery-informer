@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import voluptuous as vol
@@ -64,6 +65,8 @@ from .i18n import (
     get_legacy_notify_service_label,
     normalize_builtin_template,
 )
+
+LOGGER = logging.getLogger(__name__)
 
 
 def _get_notify_service_options(
@@ -581,10 +584,17 @@ class BatteryInformerOptionsFlow(config_entries.OptionsFlow):
                         self._config_entry.entry_id,
                         options_data,
                     )
-                    if not await preview_manager.async_send_lowest_battery_notification():
-                        errors["base"] = "no_batteries_found"
-                    else:
-                        return self.async_create_entry(title="", data=options_data)
+                    try:
+                        if not await preview_manager.async_send_lowest_battery_notification():
+                            errors["base"] = "no_batteries_found"
+                        else:
+                            return self.async_create_entry(title="", data=options_data)
+                    except Exception:  # pragma: no cover - defensive path for HA runtime failures
+                        LOGGER.exception(
+                            "Failed to send lowest-battery preview notification for entry %s",
+                            self._config_entry.entry_id,
+                        )
+                        errors["base"] = "send_preview_failed"
                 else:
                     return self.async_create_entry(title="", data=options_data)
 
