@@ -5,8 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TypeAlias
 
+import voluptuous as vol
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
 
 from .const import (
     ATTR_MESSAGE,
@@ -64,6 +67,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         DOMAIN,
         SERVICE_SEND_TEST_NOTIFICATION,
         _async_send_test_notification,
+        schema=vol.Schema({vol.Optional(ATTR_MESSAGE): cv.string}),
     )
     return True
 
