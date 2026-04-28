@@ -44,5 +44,13 @@
         }
       }
     }
+  },
+  "selector": {
+    "monitoring_mode": {
+      "options": {
+        "all_except_excluded": "Monitor all except excluded",
+        "include_only": "Monitor included entities only"
+      }
+    }
   }
 }

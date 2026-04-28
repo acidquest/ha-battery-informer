@@ -14,6 +14,7 @@ from custom_components.battery_informer.config_flow import (
 
 def test_get_notify_service_options_filters_builtin_notify_services() -> None:
     hass = SimpleNamespace(
+        config=SimpleNamespace(language="en"),
         services=SimpleNamespace(
             async_services=lambda: {
                 "notify": {
@@ -51,13 +52,14 @@ def test_get_notify_service_options_filters_builtin_notify_services() -> None:
     ]
     assert [option["label"] for option in options] == [
         "Pixel 9 (notify.mobile_app_pixel)",
-        "Legacy service (notify.mobile_app_pixel)",
-        "Legacy service (notify.telegram_home)",
+        "Legacy notify service (notify.mobile_app_pixel)",
+        "Legacy notify service (notify.telegram_home)",
     ]
 
 
 def test_get_notify_service_options_preserves_current_missing_service() -> None:
     hass = SimpleNamespace(
+        config=SimpleNamespace(language="en"),
         services=SimpleNamespace(
             async_services=lambda: {
                 "notify": {
@@ -77,6 +79,33 @@ def test_get_notify_service_options_preserves_current_missing_service() -> None:
     assert [option["value"] for option in options] == [
         "service:telegram_home",
         "service:legacy_telegram",
+    ]
+
+
+def test_get_notify_service_options_localizes_legacy_labels_for_russian() -> None:
+    hass = SimpleNamespace(
+        config=SimpleNamespace(language="ru"),
+        services=SimpleNamespace(
+            async_services=lambda: {
+                "notify": {
+                    "telegram_home": object(),
+                }
+            }
+        ),
+    )
+    entity_registry = SimpleNamespace(entities={})
+
+    with patch(
+        "custom_components.battery_informer.config_flow.er.async_get",
+        return_value=entity_registry,
+    ):
+        options = _get_notify_service_options(hass, "")
+
+    assert options == [
+        {
+            "value": "service:telegram_home",
+            "label": "Устаревший notify-сервис (notify.telegram_home)",
+        }
     ]
 
 

@@ -57,13 +57,19 @@ from .detector import (
     normalize_notify_service,
     normalize_notify_target,
 )
-from .i18n import get_default_message_templates, get_hass_language
+from .i18n import (
+    get_default_message_templates,
+    get_hass_language,
+    get_legacy_notify_service_label,
+    normalize_builtin_template,
+)
 
 
 def _get_notify_service_options(
     hass: HomeAssistant,
     current_target: str,
 ) -> list[SelectOptionDict]:
+    language = get_hass_language(hass)
     try:
         normalized_current_target = normalize_notify_target(current_target)
     except ValueError:
@@ -90,7 +96,7 @@ def _get_notify_service_options(
     options.extend(
         SelectOptionDict(
             value=f"service:{service_name}",
-            label=f"Legacy service (notify.{service_name})",
+            label=get_legacy_notify_service_label(language, service_name),
         )
         for service_name in sorted(hass.services.async_services().get(NOTIFY_DOMAIN, {}))
         if service_name
@@ -113,7 +119,7 @@ def _get_notify_service_options(
             options.append(
                 SelectOptionDict(
                     value=normalized_current_target,
-                    label=f"Legacy service (notify.{service_name})",
+                    label=get_legacy_notify_service_label(language, service_name),
                 )
             )
 
@@ -179,17 +185,9 @@ def _build_battery_entity_selector(
 def _build_monitoring_mode_selector(current_mode: str) -> SelectSelector:
     return SelectSelector(
         SelectSelectorConfig(
-            options=[
-                SelectOptionDict(
-                    value="all_except_excluded",
-                    label="Monitor all except excluded",
-                ),
-                SelectOptionDict(
-                    value="include_only",
-                    label="Monitor included entities only",
-                ),
-            ],
+            options=["all_except_excluded", "include_only"],
             mode="dropdown",
+            translation_key="monitoring_mode",
         )
     )
 
@@ -229,6 +227,7 @@ def _build_common_schema(
 ) -> vol.Schema:
     normalized_notify_service = _normalize_notify_target_for_form(notify_service)
     default_templates = _get_localized_default_templates(hass)
+    current_language = get_hass_language(hass)
     return vol.Schema(
         {
             vol.Required(CONF_WARNING_THRESHOLD, default=warning_threshold): NumberSelector(
@@ -251,15 +250,27 @@ def _build_common_schema(
             ): _build_monitoring_mode_selector(monitoring_mode),
             vol.Optional(
                 CONF_WARNING_TEMPLATE,
-                default=warning_template or default_templates["warning_template"],
+                default=normalize_builtin_template(
+                    warning_template or default_templates["warning_template"],
+                    "warning_template",
+                    current_language,
+                ),
             ): _build_template_selector(),
             vol.Optional(
                 CONF_CRITICAL_TEMPLATE,
-                default=critical_template or default_templates["critical_template"],
+                default=normalize_builtin_template(
+                    critical_template or default_templates["critical_template"],
+                    "critical_template",
+                    current_language,
+                ),
             ): _build_template_selector(),
             vol.Optional(
                 CONF_RECOVERY_TEMPLATE,
-                default=recovery_template or default_templates["recovery_template"],
+                default=normalize_builtin_template(
+                    recovery_template or default_templates["recovery_template"],
+                    "recovery_template",
+                    current_language,
+                ),
             ): _build_template_selector(),
         }
     )
@@ -299,6 +310,7 @@ def _build_options_schema(config_entry: config_entries.ConfigEntry, hass: HomeAs
     )
     normalized_notify_service = _normalize_notify_target_for_form(notify_service)
     default_templates = _get_localized_default_templates(hass)
+    current_language = get_hass_language(hass)
     return vol.Schema(
         {
             vol.Required(
@@ -347,41 +359,59 @@ def _build_options_schema(config_entry: config_entries.ConfigEntry, hass: HomeAs
             vol.Optional(
                 CONF_WARNING_TEMPLATE,
                 default=str(
-                    config_entry.options.get(
-                        CONF_WARNING_TEMPLATE,
-                        config_entry.data.get(
-                            CONF_WARNING_TEMPLATE,
-                            default_templates["warning_template"],
-                        ),
+                    normalize_builtin_template(
+                        str(
+                            config_entry.options.get(
+                                CONF_WARNING_TEMPLATE,
+                                config_entry.data.get(
+                                    CONF_WARNING_TEMPLATE,
+                                    default_templates["warning_template"],
+                                ),
+                            )
+                        )
+                        or default_templates["warning_template"],
+                        "warning_template",
+                        current_language,
                     )
-                )
-                or default_templates["warning_template"],
+                ),
             ): _build_template_selector(),
             vol.Optional(
                 CONF_CRITICAL_TEMPLATE,
                 default=str(
-                    config_entry.options.get(
-                        CONF_CRITICAL_TEMPLATE,
-                        config_entry.data.get(
-                            CONF_CRITICAL_TEMPLATE,
-                            default_templates["critical_template"],
-                        ),
+                    normalize_builtin_template(
+                        str(
+                            config_entry.options.get(
+                                CONF_CRITICAL_TEMPLATE,
+                                config_entry.data.get(
+                                    CONF_CRITICAL_TEMPLATE,
+                                    default_templates["critical_template"],
+                                ),
+                            )
+                        )
+                        or default_templates["critical_template"],
+                        "critical_template",
+                        current_language,
                     )
-                )
-                or default_templates["critical_template"],
+                ),
             ): _build_template_selector(),
             vol.Optional(
                 CONF_RECOVERY_TEMPLATE,
                 default=str(
-                    config_entry.options.get(
-                        CONF_RECOVERY_TEMPLATE,
-                        config_entry.data.get(
-                            CONF_RECOVERY_TEMPLATE,
-                            default_templates["recovery_template"],
-                        ),
+                    normalize_builtin_template(
+                        str(
+                            config_entry.options.get(
+                                CONF_RECOVERY_TEMPLATE,
+                                config_entry.data.get(
+                                    CONF_RECOVERY_TEMPLATE,
+                                    default_templates["recovery_template"],
+                                ),
+                            )
+                        )
+                        or default_templates["recovery_template"],
+                        "recovery_template",
+                        current_language,
                     )
-                )
-                or default_templates["recovery_template"],
+                ),
             ): _build_template_selector(),
             vol.Optional(
                 CONF_RESET_TEMPLATES_TO_DEFAULT,

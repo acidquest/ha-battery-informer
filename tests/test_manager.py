@@ -173,6 +173,7 @@ async def test_manager_sends_notification_via_notify_entity() -> None:
 @pytest.mark.asyncio
 async def test_manager_sends_test_notification() -> None:
     hass = SimpleNamespace(
+        config=SimpleNamespace(language="en"),
         services=SimpleNamespace(async_call=AsyncMock()),
         states=SimpleNamespace(async_all=lambda _domain=None: []),
         async_create_task=lambda coro: coro,
@@ -192,6 +193,7 @@ async def test_manager_sends_test_notification() -> None:
 @pytest.mark.asyncio
 async def test_manager_does_not_add_telegram_payload_for_non_telegram_target() -> None:
     hass = SimpleNamespace(
+        config=SimpleNamespace(language="en"),
         services=SimpleNamespace(async_call=AsyncMock()),
         states=SimpleNamespace(async_all=lambda _domain: []),
         async_create_task=lambda coro: coro,
@@ -216,6 +218,29 @@ async def test_manager_does_not_add_telegram_payload_for_non_telegram_target() -
         "notify",
         "mobile_app_pixel",
         {"message": "hello"},
+        blocking=False,
+    )
+
+
+@pytest.mark.asyncio
+async def test_manager_localizes_default_test_notification_message() -> None:
+    hass = SimpleNamespace(
+        config=SimpleNamespace(language="ru"),
+        services=SimpleNamespace(async_call=AsyncMock()),
+        states=SimpleNamespace(async_all=lambda _domain=None: []),
+        async_create_task=lambda coro: coro,
+    )
+    manager = _build_manager(hass)
+
+    await manager.async_send_test_notification()
+
+    hass.services.async_call.assert_awaited_once_with(
+        "notify",
+        "telegram",
+        {
+            "message": "Тестовое сообщение Battery Informer. Интеграция настроена и может отправлять уведомления.",
+            "data": {"parse_mode": "html"},
+        },
         blocking=False,
     )
 

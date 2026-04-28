@@ -26,7 +26,11 @@ from .const import (
     LEVEL_WARNING,
 )
 from .detector import BatteryReading, classify_battery_reading, get_battery_reading
-from .i18n import build_localized_level_message, get_hass_language
+from .i18n import (
+    build_localized_level_message,
+    get_default_test_notification_message,
+    get_hass_language,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -163,8 +167,7 @@ class BatteryInformerManager:
     async def async_send_test_notification(self, message: str | None = None) -> None:
         """Send a test notification through the configured target."""
         await self._async_send_raw_notification(
-            message
-            or "Battery Informer test notification. The integration is configured and can send messages."
+            message or get_default_test_notification_message(get_hass_language(self.hass))
         )
 
     def async_add_listener(self, listener: Callable[[], None]) -> Callable[[], None]:

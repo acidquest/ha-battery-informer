@@ -6,3 +6,8 @@ send_test_notification:
       default: Battery Informer test notification. The integration is configured and can send messages.
       selector:
         text:
+    data:
+      required: false
+      example: {}
+      selector:
+        object:

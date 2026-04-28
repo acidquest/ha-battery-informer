@@ -33,6 +33,7 @@ from .const import (
     PLATFORMS,
     SERVICE_SEND_TEST_NOTIFICATION,
 )
+from .i18n import get_default_message_templates, get_hass_language, normalize_builtin_template
 from .manager import BatteryInformerManager
 
 
@@ -69,6 +70,8 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: BatteryInformerConfigEntry) -> bool:
     """Set up Battery Informer from a config entry."""
+    current_language = get_hass_language(hass)
+    default_templates = get_default_message_templates(current_language)
     config = {
         CONF_WARNING_THRESHOLD: entry.options.get(CONF_WARNING_THRESHOLD, entry.data.get(CONF_WARNING_THRESHOLD, DEFAULT_WARNING_THRESHOLD)),
         CONF_CRITICAL_THRESHOLD: entry.options.get(CONF_CRITICAL_THRESHOLD, entry.data.get(CONF_CRITICAL_THRESHOLD, DEFAULT_CRITICAL_THRESHOLD)),
@@ -80,9 +83,36 @@ async def async_setup_entry(hass: HomeAssistant, entry: BatteryInformerConfigEnt
             CONF_RESCAN_INTERVAL_MINUTES,
             entry.data.get(CONF_RESCAN_INTERVAL_MINUTES, DEFAULT_RESCAN_INTERVAL_MINUTES),
         ),
-        CONF_WARNING_TEMPLATE: entry.options.get(CONF_WARNING_TEMPLATE, entry.data.get(CONF_WARNING_TEMPLATE, DEFAULT_WARNING_TEMPLATE)),
-        CONF_CRITICAL_TEMPLATE: entry.options.get(CONF_CRITICAL_TEMPLATE, entry.data.get(CONF_CRITICAL_TEMPLATE, DEFAULT_CRITICAL_TEMPLATE)),
-        CONF_RECOVERY_TEMPLATE: entry.options.get(CONF_RECOVERY_TEMPLATE, entry.data.get(CONF_RECOVERY_TEMPLATE, DEFAULT_RECOVERY_TEMPLATE)),
+        CONF_WARNING_TEMPLATE: normalize_builtin_template(
+            str(
+                entry.options.get(
+                    CONF_WARNING_TEMPLATE,
+                    entry.data.get(CONF_WARNING_TEMPLATE, default_templates["warning_template"]),
+                )
+            ),
+            "warning_template",
+            current_language,
+        ),
+        CONF_CRITICAL_TEMPLATE: normalize_builtin_template(
+            str(
+                entry.options.get(
+                    CONF_CRITICAL_TEMPLATE,
+                    entry.data.get(CONF_CRITICAL_TEMPLATE, default_templates["critical_template"]),
+                )
+            ),
+            "critical_template",
+            current_language,
+        ),
+        CONF_RECOVERY_TEMPLATE: normalize_builtin_template(
+            str(
+                entry.options.get(
+                    CONF_RECOVERY_TEMPLATE,
+                    entry.data.get(CONF_RECOVERY_TEMPLATE, default_templates["recovery_template"]),
+                )
+            ),
+            "recovery_template",
+            current_language,
+        ),
     }
 
     manager = BatteryInformerManager(hass, entry.entry_id, config)

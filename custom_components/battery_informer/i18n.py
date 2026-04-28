@@ -45,6 +45,35 @@ def get_default_message_templates(language: str) -> dict[str, str]:
     }
 
 
+def get_legacy_notify_service_label(language: str, service_name: str) -> str:
+    """Return a localized label for a legacy notify service."""
+    if language == LANG_RU:
+        return f"Устаревший notify-сервис (notify.{service_name})"
+    return f"Legacy notify service (notify.{service_name})"
+
+
+def get_default_test_notification_message(language: str) -> str:
+    """Return a localized default test notification message."""
+    if language == LANG_RU:
+        return "Тестовое сообщение Battery Informer. Интеграция настроена и может отправлять уведомления."
+    return "Battery Informer test notification. The integration is configured and can send messages."
+
+
+def normalize_builtin_template(template: str, template_key: str, language: str) -> str:
+    """Normalize built-in templates to the current language."""
+    localized_templates = get_default_message_templates(language)
+    all_builtin_templates = {
+        templates[template_key]
+        for templates in (
+            get_default_message_templates(LANG_EN),
+            get_default_message_templates(LANG_RU),
+        )
+    }
+    if template in all_builtin_templates:
+        return localized_templates[template_key]
+    return template
+
+
 def build_localized_level_message(
     reading: BatteryReading,
     new_level: str,

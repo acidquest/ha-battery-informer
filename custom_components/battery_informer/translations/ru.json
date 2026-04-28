@@ -44,5 +44,13 @@
         }
       }
     }
+  },
+  "selector": {
+    "monitoring_mode": {
+      "options": {
+        "all_except_excluded": "Мониторить все, кроме исключённых",
+        "include_only": "Мониторить только включённые сущности"
+      }
+    }
   }
 }
