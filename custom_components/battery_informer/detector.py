@@ -55,11 +55,6 @@ def normalize_notify_target(raw_target: str) -> str:
         service = normalize_notify_service(value.removeprefix(_NOTIFY_SERVICE_PREFIX))
         return f"{_NOTIFY_SERVICE_PREFIX}{service}"
 
-    if value.startswith(f"{NOTIFY_DOMAIN}."):
-        suffix = value.removeprefix(f"{NOTIFY_DOMAIN}.")
-        if _SERVICE_NAME_RE.fullmatch(suffix):
-            return f"{_NOTIFY_ENTITY_PREFIX}{value}"
-
     service = normalize_notify_service(value)
     return f"{_NOTIFY_SERVICE_PREFIX}{service}"
 

@@ -9,6 +9,8 @@
 - отправка уведомлений только при смене уровня, без спама на каждом обновлении
 - поддержка любого существующего `notify` сервиса
 - исключение отдельных сущностей из мониторинга через настройки интеграции
+- сервис для отправки тестового уведомления
+- диагностические сенсоры со списком найденных батареек и критических батареек
 - мультиязычные UI-тексты и уведомления по языку Home Assistant
 
 ## Что считается поддерживаемой батарейной сущностью
@@ -96,6 +98,52 @@
 
 Список исключений строится из найденных батарейных сенсоров. Если исключённая сущность временно пропадёт из Home Assistant, её `entity_id` сохранится в настройках.
 
+## Проверка работы интеграции
+
+Для проверки настройки доступны:
+
+- сервис `battery_informer.send_test_notification`
+- сенсор `Tracked batteries`
+- сенсор `Critical batteries`
+
+### Сервис тестового уведомления
+
+В `Developer Tools -> Actions` можно вызвать сервис `battery_informer.send_test_notification`.
+
+Параметры:
+
+- `message` — необязательный текст тестового уведомления
+
+Если параметр не указан, интеграция отправит стандартное тестовое сообщение.
+
+### Диагностические сенсоры
+
+Интеграция создаёт два объекта:
+
+- `Tracked batteries` — количество всех отслеживаемых батарейных сенсоров
+- `Critical batteries` — количество сенсоров, которые сейчас находятся в критическом уровне
+
+Атрибуты `Tracked batteries`:
+
+- `warning_count`
+- `critical_count`
+- `excluded_entities`
+- `batteries`
+
+В `batteries` хранится список словарей вида:
+
+- `entity_id`
+- `name`
+- `level_percent`
+- `status`
+
+Атрибуты `Critical batteries`:
+
+- `critical_count`
+- `batteries`
+
+В этом списке находятся только батарейки со статусом `critical`.
+
 ## Пример поведения
 
 Если заданы:
@@ -138,7 +186,6 @@
 
 ## Ограничения текущей версии
 
-- интеграция не создаёт собственные сенсоры или устройства
 - детект батарейных сущностей намеренно консервативный
 - текст уведомлений пока не настраивается через UI
 - интеграция работает только с теми значениями батареи, которые уже есть в Home Assistant
@@ -150,7 +197,9 @@
 - `custom_components/battery_informer/manifest.json`
 - `custom_components/battery_informer/config_flow.py`
 - `custom_components/battery_informer/manager.py`
+- `custom_components/battery_informer/sensor.py`
 - `custom_components/battery_informer/detector.py`
+- `custom_components/battery_informer/services.yaml`
 - `custom_components/battery_informer/strings.json`
 - `hacs.json`
 - `brand/icon.svg`
@@ -180,4 +229,3 @@ pytest -q tests
 - поддержка `binary_sensor` low-battery
 - настраиваемые шаблоны сообщений
 - ручной include-only режим
-- сервис для отправки тестового уведомления

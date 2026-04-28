@@ -156,3 +156,22 @@ async def test_manager_sends_notification_via_notify_entity() -> None:
         },
         blocking=False,
     )
+
+
+@pytest.mark.asyncio
+async def test_manager_sends_test_notification() -> None:
+    hass = SimpleNamespace(
+        services=SimpleNamespace(async_call=AsyncMock()),
+        states=SimpleNamespace(async_all=lambda _domain: []),
+        async_create_task=lambda coro: coro,
+    )
+    manager = _build_manager(hass)
+
+    await manager.async_send_test_notification("hello")
+
+    hass.services.async_call.assert_awaited_once_with(
+        "notify",
+        "telegram",
+        {"message": "hello"},
+        blocking=False,
+    )

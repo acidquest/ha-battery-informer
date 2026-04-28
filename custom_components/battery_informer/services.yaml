@@ -1,0 +1,7 @@
+send_test_notification:
+  fields:
+    message:
+      required: false
+      example: Battery Informer test notification
+      selector:
+        text:

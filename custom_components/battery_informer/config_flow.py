@@ -10,10 +10,12 @@ from homeassistant import config_entries
 from homeassistant.components.notify.const import (
     DOMAIN as NOTIFY_DOMAIN,
     SERVICE_NOTIFY,
+    SERVICE_PERSISTENT_NOTIFICATION,
     SERVICE_SEND_MESSAGE,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.selector import (
     NumberSelector,
     NumberSelectorConfig,
@@ -50,13 +52,21 @@ def _get_notify_service_options(
         normalized_current_target = current_target
 
     options: list[SelectOptionDict] = []
+    entity_registry = er.async_get(hass)
 
     options.extend(
         SelectOptionDict(
-            value=f"entity:{state.entity_id}",
-            label=f"{state.name or state.entity_id} ({state.entity_id})",
+            value=f"entity:{entry.entity_id}",
+            label=f"{entry.name or entry.original_name or entry.entity_id} ({entry.entity_id})",
         )
-        for state in sorted(hass.states.async_all(NOTIFY_DOMAIN), key=lambda item: item.name or item.entity_id)
+        for entry in sorted(
+            (
+                entry
+                for entry in entity_registry.entities.values()
+                if entry.domain == NOTIFY_DOMAIN and entry.disabled_by is None
+            ),
+            key=lambda item: item.name or item.original_name or item.entity_id,
+        )
     )
 
     options.extend(
@@ -65,7 +75,8 @@ def _get_notify_service_options(
             label=f"Legacy service (notify.{service_name})",
         )
         for service_name in sorted(hass.services.async_services().get(NOTIFY_DOMAIN, {}))
-        if service_name not in {SERVICE_NOTIFY, SERVICE_SEND_MESSAGE}
+        if service_name
+        not in {SERVICE_NOTIFY, SERVICE_SEND_MESSAGE, SERVICE_PERSISTENT_NOTIFICATION}
     )
 
     if normalized_current_target and normalized_current_target not in {
@@ -205,12 +216,21 @@ def _validate_thresholds(user_input: dict[str, Any]) -> None:
 
 
 def _validate_notify_service(hass: HomeAssistant, raw_service: str) -> str:
-    target = normalize_notify_target(raw_service)
+    value = raw_service.strip().lower()
+
+    if value.startswith("entity:") or value.startswith("service:"):
+        target = normalize_notify_target(value)
+    elif value.startswith(f"{NOTIFY_DOMAIN}."):
+        if er.async_get(hass).async_get(value) is not None:
+            target = f"entity:{value}"
+        else:
+            target = f"service:{normalize_notify_service(value)}"
+    else:
+        target = normalize_notify_target(value)
 
     if target.startswith("entity:"):
         entity_id = target.removeprefix("entity:")
-        state = hass.states.get(entity_id)
-        if state is None or state.domain != NOTIFY_DOMAIN:
+        if er.async_get(hass).async_get(entity_id) is None:
             raise ValueError("notify_service_not_found")
         return target
 

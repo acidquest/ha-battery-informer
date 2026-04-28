@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import voluptuous as vol
 from typing import TypeAlias
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
 
 from .const import (
+    ATTR_MESSAGE,
     CONF_CRITICAL_THRESHOLD,
     CONF_EXCLUDED_ENTITIES,
     CONF_NOTIFY_SERVICE,
@@ -17,6 +20,8 @@ from .const import (
     DEFAULT_EXCLUDED_ENTITIES,
     DEFAULT_WARNING_THRESHOLD,
     DOMAIN,
+    PLATFORMS,
+    SERVICE_SEND_TEST_NOTIFICATION,
 )
 from .manager import BatteryInformerManager
 
@@ -34,6 +39,22 @@ BatteryInformerConfigEntry: TypeAlias = ConfigEntry[BatteryInformerRuntimeData]
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up the integration namespace."""
     hass.data.setdefault(DOMAIN, {})
+
+    async def _async_send_test_notification(call) -> None:
+        entry_id = next(iter(hass.data[DOMAIN]), None)
+        if entry_id is None:
+            return
+        runtime_data = hass.data[DOMAIN].get(entry_id)
+        if runtime_data is None:
+            return
+        await runtime_data.manager.async_send_test_notification(call.data.get(ATTR_MESSAGE))
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_SEND_TEST_NOTIFICATION,
+        _async_send_test_notification,
+        schema=vol.Schema({vol.Optional(ATTR_MESSAGE): cv.string}),
+    )
     return True
 
 
@@ -52,16 +73,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: BatteryInformerConfigEnt
     runtime_data = BatteryInformerRuntimeData(manager=manager)
     entry.runtime_data = runtime_data
     hass.data[DOMAIN][entry.entry_id] = runtime_data
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: BatteryInformerConfigEntry) -> bool:
     """Unload a config entry."""
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     runtime_data = hass.data[DOMAIN].pop(entry.entry_id, None)
     if runtime_data is not None:
         await runtime_data.manager.async_stop()
-    return True
+    return unload_ok
 
 
 async def async_reload_entry(hass: HomeAssistant, entry: BatteryInformerConfigEntry) -> None:

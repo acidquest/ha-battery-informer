@@ -4,6 +4,20 @@
 
 Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/), а версии рекомендуется вести по [Semantic Versioning](https://semver.org/lang/ru/).
 
+## [Unreleased]
+
+### Added
+
+- сервис `battery_informer.send_test_notification` для проверки отправки уведомлений
+- сенсор `Tracked batteries` с атрибутами по всем найденным батарейкам
+- сенсор `Critical batteries` с атрибутами по батарейкам в критическом уровне
+- локальные PNG-ассеты брендинга внутри `custom_components/battery_informer/brand/`
+
+### Changed
+
+- выбор notify-цели в UI теперь поддерживает `notify` entities и legacy `notify.<service>`
+- валидация notify-цели переведена на entity registry и legacy service lookup
+
 ## [0.1.0] - 2026-04-27
 
 ### Added

@@ -34,7 +34,7 @@ def test_normalize_notify_target_accepts_legacy_service() -> None:
 
 
 def test_normalize_notify_target_accepts_notify_entity() -> None:
-    assert normalize_notify_target("notify.mobile_app_phone") == "entity:notify.mobile_app_phone"
+    assert normalize_notify_target("entity:notify.mobile_app_phone") == "entity:notify.mobile_app_phone"
 
 
 def test_get_battery_reading_accepts_valid_battery_sensor() -> None:
