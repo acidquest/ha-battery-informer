@@ -65,7 +65,13 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         DOMAIN,
         SERVICE_SEND_TEST_NOTIFICATION,
         _async_send_test_notification,
-        schema=vol.Schema({vol.Optional(ATTR_MESSAGE): cv.string}),
+        schema=vol.Schema(
+            {
+                vol.Optional(ATTR_MESSAGE): cv.string,
+                vol.Optional("data"): object,
+            },
+            extra=vol.ALLOW_EXTRA,
+        ),
     )
     return True
 

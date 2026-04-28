@@ -17,6 +17,7 @@ CONF_INCLUDED_ENTITIES: Final = "included_entities"
 CONF_WARNING_TEMPLATE: Final = "warning_template"
 CONF_CRITICAL_TEMPLATE: Final = "critical_template"
 CONF_RECOVERY_TEMPLATE: Final = "recovery_template"
+CONF_RESET_TEMPLATES_TO_DEFAULT: Final = "reset_templates_to_default"
 
 DEFAULT_WARNING_THRESHOLD: Final = 20
 DEFAULT_CRITICAL_THRESHOLD: Final = 10
@@ -24,9 +25,15 @@ DEFAULT_EXCLUDED_ENTITIES: Final[list[str]] = []
 DEFAULT_RESCAN_INTERVAL_MINUTES: Final = 10
 DEFAULT_MONITORING_MODE: Final = "all_except_excluded"
 DEFAULT_INCLUDED_ENTITIES: Final[list[str]] = []
-DEFAULT_WARNING_TEMPLATE: Final = ""
-DEFAULT_CRITICAL_TEMPLATE: Final = ""
-DEFAULT_RECOVERY_TEMPLATE: Final = ""
+DEFAULT_WARNING_TEMPLATE: Final = (
+    "Battery low: {name} ({entity_id}) {details_warning}"
+)
+DEFAULT_CRITICAL_TEMPLATE: Final = (
+    "Battery critical: {name} ({entity_id}) {details_critical}"
+)
+DEFAULT_RECOVERY_TEMPLATE: Final = (
+    "Battery recovered: {name} ({entity_id}) {details_recovery}"
+)
 
 LEVEL_NORMAL: Final = "normal"
 LEVEL_WARNING: Final = "warning"

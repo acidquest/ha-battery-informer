@@ -39,7 +39,8 @@
           "included_entities": "Включённые батарейные сущности",
           "warning_template": "Шаблон warning-сообщения",
           "critical_template": "Шаблон critical-сообщения",
-          "recovery_template": "Шаблон recovery-сообщения"
+          "recovery_template": "Шаблон recovery-сообщения",
+          "reset_templates_to_default": "Сбросить шаблоны к значениям по умолчанию"
         }
       }
     }

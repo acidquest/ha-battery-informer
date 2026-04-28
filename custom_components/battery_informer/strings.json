@@ -39,7 +39,8 @@
           "included_entities": "Included battery entities",
           "warning_template": "Warning message template",
           "critical_template": "Critical message template",
-          "recovery_template": "Recovery message template"
+          "recovery_template": "Recovery message template",
+          "reset_templates_to_default": "Reset templates to default"
         }
       }
     }

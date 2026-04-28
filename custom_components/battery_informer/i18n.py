@@ -6,7 +6,14 @@ from typing import Final
 
 from homeassistant.core import HomeAssistant
 
-from .const import LEVEL_CRITICAL, LEVEL_NORMAL, LEVEL_WARNING
+from .const import (
+    DEFAULT_CRITICAL_TEMPLATE,
+    DEFAULT_RECOVERY_TEMPLATE,
+    DEFAULT_WARNING_TEMPLATE,
+    LEVEL_CRITICAL,
+    LEVEL_NORMAL,
+    LEVEL_WARNING,
+)
 from .detector import BatteryReading
 
 LANG_EN: Final = "en"
@@ -21,6 +28,21 @@ def get_hass_language(hass: HomeAssistant) -> str:
     if normalized.startswith("ru"):
         return LANG_RU
     return LANG_EN
+
+
+def get_default_message_templates(language: str) -> dict[str, str]:
+    """Return localized default message templates."""
+    if language == LANG_RU:
+        return {
+            "warning_template": "Низкий заряд батареи: {name} ({entity_id}) {details_warning}",
+            "critical_template": "Критический заряд батареи: {name} ({entity_id}) {details_critical}",
+            "recovery_template": "Заряд восстановлен: {name} ({entity_id}) {details_recovery}",
+        }
+    return {
+        "warning_template": DEFAULT_WARNING_TEMPLATE,
+        "critical_template": DEFAULT_CRITICAL_TEMPLATE,
+        "recovery_template": DEFAULT_RECOVERY_TEMPLATE,
+    }
 
 
 def build_localized_level_message(
@@ -41,6 +63,7 @@ def build_localized_level_message(
             new_level,
             warning_threshold,
             critical_threshold,
+            language,
         )
 
     if new_level == LEVEL_CRITICAL and critical_template.strip():
@@ -50,6 +73,7 @@ def build_localized_level_message(
             new_level,
             warning_threshold,
             critical_threshold,
+            language,
         )
 
     if new_level == LEVEL_NORMAL and recovery_template.strip():
@@ -59,6 +83,7 @@ def build_localized_level_message(
             new_level,
             warning_threshold,
             critical_threshold,
+            language,
         )
 
     if language == LANG_RU:
@@ -168,6 +193,7 @@ def _render_message_template(
     new_level: str,
     warning_threshold: int,
     critical_threshold: int,
+    language: str,
 ) -> str:
     context = _SafeFormatDict(
         entity_id=reading.entity_id,
@@ -178,8 +204,58 @@ def _render_message_template(
         critical_threshold=critical_threshold,
         status=new_level,
         is_binary=str(reading.is_binary).lower(),
+        details_warning=_build_details_warning(reading, warning_threshold, language),
+        details_critical=_build_details_critical(reading, critical_threshold, language),
+        details_recovery=_build_details_recovery(reading, language),
     )
     return template.format_map(context)
+
+
+def _build_details_warning(
+    reading: BatteryReading,
+    warning_threshold: int,
+    language: str,
+) -> str:
+    if language == LANG_RU:
+        if reading.level_percent is None:
+            return "сообщает о низком заряде батареи."
+        return f"имеет {reading.level_percent}%. Порог предупреждения: {warning_threshold}%."
+
+    if reading.level_percent is None:
+        return "reports a low-battery condition."
+    return f"is at {reading.level_percent}%. Warning threshold: {warning_threshold}%."
+
+
+def _build_details_critical(
+    reading: BatteryReading,
+    critical_threshold: int,
+    language: str,
+) -> str:
+    if language == LANG_RU:
+        if reading.level_percent is None:
+            return "сообщает о низком заряде батареи. Замените батарею или зарядите устройство как можно скорее."
+        return (
+            f"имеет {reading.level_percent}%. Замените батарею или зарядите устройство как можно скорее. "
+            f"Критический порог: {critical_threshold}%."
+        )
+
+    if reading.level_percent is None:
+        return "reports a low-battery condition. Replace or recharge the battery soon."
+    return (
+        f"is at {reading.level_percent}%. Replace or recharge the battery soon. "
+        f"Critical threshold: {critical_threshold}%."
+    )
+
+
+def _build_details_recovery(reading: BatteryReading, language: str) -> str:
+    if language == LANG_RU:
+        if reading.level_percent is None:
+            return "больше не сообщает о низком заряде батареи."
+        return f"снова имеет {reading.level_percent}% и находится выше порога предупреждения."
+
+    if reading.level_percent is None:
+        return "no longer reports a low-battery condition."
+    return f"is back to {reading.level_percent}% and above the warning threshold."
 
 
 class _SafeFormatDict(dict[str, object]):

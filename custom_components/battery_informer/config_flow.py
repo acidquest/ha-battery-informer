@@ -17,6 +17,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.selector import (
+    BooleanSelector,
+    BooleanSelectorConfig,
     NumberSelector,
     NumberSelectorConfig,
     SelectOptionDict,
@@ -34,6 +36,7 @@ from .const import (
     CONF_MONITORING_MODE,
     CONF_NOTIFY_SERVICE,
     CONF_RESCAN_INTERVAL_MINUTES,
+    CONF_RESET_TEMPLATES_TO_DEFAULT,
     CONF_RECOVERY_TEMPLATE,
     CONF_WARNING_THRESHOLD,
     CONF_WARNING_TEMPLATE,
@@ -54,6 +57,7 @@ from .detector import (
     normalize_notify_service,
     normalize_notify_target,
 )
+from .i18n import get_default_message_templates, get_hass_language
 
 
 def _get_notify_service_options(
@@ -194,6 +198,15 @@ def _build_template_selector() -> TextSelector:
     return TextSelector(TextSelectorConfig(multiline=True))
 
 
+def _build_reset_templates_selector() -> BooleanSelector:
+    return BooleanSelector(BooleanSelectorConfig())
+
+
+def _get_localized_default_templates(hass: HomeAssistant) -> dict[str, str]:
+    """Return localized default templates for the current HA language."""
+    return get_default_message_templates(get_hass_language(hass))
+
+
 def _normalize_notify_target_for_form(current_target: str) -> str:
     """Normalize stored notify target for selector defaults."""
     try:
@@ -215,6 +228,7 @@ def _build_common_schema(
     recovery_template: str,
 ) -> vol.Schema:
     normalized_notify_service = _normalize_notify_target_for_form(notify_service)
+    default_templates = _get_localized_default_templates(hass)
     return vol.Schema(
         {
             vol.Required(CONF_WARNING_THRESHOLD, default=warning_threshold): NumberSelector(
@@ -237,15 +251,15 @@ def _build_common_schema(
             ): _build_monitoring_mode_selector(monitoring_mode),
             vol.Optional(
                 CONF_WARNING_TEMPLATE,
-                default=warning_template,
+                default=warning_template or default_templates["warning_template"],
             ): _build_template_selector(),
             vol.Optional(
                 CONF_CRITICAL_TEMPLATE,
-                default=critical_template,
+                default=critical_template or default_templates["critical_template"],
             ): _build_template_selector(),
             vol.Optional(
                 CONF_RECOVERY_TEMPLATE,
-                default=recovery_template,
+                default=recovery_template or default_templates["recovery_template"],
             ): _build_template_selector(),
         }
     )
@@ -284,6 +298,7 @@ def _build_options_schema(config_entry: config_entries.ConfigEntry, hass: HomeAs
         )
     )
     normalized_notify_service = _normalize_notify_target_for_form(notify_service)
+    default_templates = _get_localized_default_templates(hass)
     return vol.Schema(
         {
             vol.Required(
@@ -334,28 +349,44 @@ def _build_options_schema(config_entry: config_entries.ConfigEntry, hass: HomeAs
                 default=str(
                     config_entry.options.get(
                         CONF_WARNING_TEMPLATE,
-                        config_entry.data.get(CONF_WARNING_TEMPLATE, DEFAULT_WARNING_TEMPLATE),
+                        config_entry.data.get(
+                            CONF_WARNING_TEMPLATE,
+                            default_templates["warning_template"],
+                        ),
                     )
-                ),
+                )
+                or default_templates["warning_template"],
             ): _build_template_selector(),
             vol.Optional(
                 CONF_CRITICAL_TEMPLATE,
                 default=str(
                     config_entry.options.get(
                         CONF_CRITICAL_TEMPLATE,
-                        config_entry.data.get(CONF_CRITICAL_TEMPLATE, DEFAULT_CRITICAL_TEMPLATE),
+                        config_entry.data.get(
+                            CONF_CRITICAL_TEMPLATE,
+                            default_templates["critical_template"],
+                        ),
                     )
-                ),
+                )
+                or default_templates["critical_template"],
             ): _build_template_selector(),
             vol.Optional(
                 CONF_RECOVERY_TEMPLATE,
                 default=str(
                     config_entry.options.get(
                         CONF_RECOVERY_TEMPLATE,
-                        config_entry.data.get(CONF_RECOVERY_TEMPLATE, DEFAULT_RECOVERY_TEMPLATE),
+                        config_entry.data.get(
+                            CONF_RECOVERY_TEMPLATE,
+                            default_templates["recovery_template"],
+                        ),
                     )
-                ),
+                )
+                or default_templates["recovery_template"],
             ): _build_template_selector(),
+            vol.Optional(
+                CONF_RESET_TEMPLATES_TO_DEFAULT,
+                default=False,
+            ): _build_reset_templates_selector(),
         }
     )
 
@@ -415,6 +446,7 @@ class BatteryInformerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except ValueError as err:
                 errors["base"] = str(err)
             else:
+                default_templates = _get_localized_default_templates(self.hass)
                 return self.async_create_entry(
                     title="Battery Informer",
                     data={
@@ -425,9 +457,12 @@ class BatteryInformerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_MONITORING_MODE: str(user_input[CONF_MONITORING_MODE]),
                         CONF_EXCLUDED_ENTITIES: DEFAULT_EXCLUDED_ENTITIES,
                         CONF_INCLUDED_ENTITIES: DEFAULT_INCLUDED_ENTITIES,
-                        CONF_WARNING_TEMPLATE: str(user_input.get(CONF_WARNING_TEMPLATE, "")).strip(),
-                        CONF_CRITICAL_TEMPLATE: str(user_input.get(CONF_CRITICAL_TEMPLATE, "")).strip(),
-                        CONF_RECOVERY_TEMPLATE: str(user_input.get(CONF_RECOVERY_TEMPLATE, "")).strip(),
+                        CONF_WARNING_TEMPLATE: str(user_input.get(CONF_WARNING_TEMPLATE, "")).strip()
+                        or default_templates["warning_template"],
+                        CONF_CRITICAL_TEMPLATE: str(user_input.get(CONF_CRITICAL_TEMPLATE, "")).strip()
+                        or default_templates["critical_template"],
+                        CONF_RECOVERY_TEMPLATE: str(user_input.get(CONF_RECOVERY_TEMPLATE, "")).strip()
+                        or default_templates["recovery_template"],
                     },
                 )
 
@@ -470,6 +505,8 @@ class BatteryInformerOptionsFlow(config_entries.OptionsFlow):
             except ValueError as err:
                 errors["base"] = str(err)
             else:
+                default_templates = _get_localized_default_templates(self.hass)
+                reset_templates = bool(user_input.get(CONF_RESET_TEMPLATES_TO_DEFAULT))
                 return self.async_create_entry(
                     title="",
                     data={
@@ -480,9 +517,24 @@ class BatteryInformerOptionsFlow(config_entries.OptionsFlow):
                         CONF_MONITORING_MODE: str(user_input[CONF_MONITORING_MODE]),
                         CONF_EXCLUDED_ENTITIES: sorted(set(user_input.get(CONF_EXCLUDED_ENTITIES, []))),
                         CONF_INCLUDED_ENTITIES: sorted(set(user_input.get(CONF_INCLUDED_ENTITIES, []))),
-                        CONF_WARNING_TEMPLATE: str(user_input.get(CONF_WARNING_TEMPLATE, "")).strip(),
-                        CONF_CRITICAL_TEMPLATE: str(user_input.get(CONF_CRITICAL_TEMPLATE, "")).strip(),
-                        CONF_RECOVERY_TEMPLATE: str(user_input.get(CONF_RECOVERY_TEMPLATE, "")).strip(),
+                        CONF_WARNING_TEMPLATE: (
+                            default_templates["warning_template"]
+                            if reset_templates
+                            else str(user_input.get(CONF_WARNING_TEMPLATE, "")).strip()
+                            or default_templates["warning_template"]
+                        ),
+                        CONF_CRITICAL_TEMPLATE: (
+                            default_templates["critical_template"]
+                            if reset_templates
+                            else str(user_input.get(CONF_CRITICAL_TEMPLATE, "")).strip()
+                            or default_templates["critical_template"]
+                        ),
+                        CONF_RECOVERY_TEMPLATE: (
+                            default_templates["recovery_template"]
+                            if reset_templates
+                            else str(user_input.get(CONF_RECOVERY_TEMPLATE, "")).strip()
+                            or default_templates["recovery_template"]
+                        ),
                     },
                 )
 

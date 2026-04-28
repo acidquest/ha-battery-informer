@@ -143,3 +143,11 @@ def test_build_options_schema_normalizes_legacy_notify_default() -> None:
         key for key in schema.schema if getattr(key, "schema", None) == "rescan_interval_minutes"
     )
     assert rescan_marker.default() == 10
+    warning_template_marker = next(
+        key for key in schema.schema if getattr(key, "schema", None) == "warning_template"
+    )
+    assert warning_template_marker.default()
+    reset_templates_marker = next(
+        key for key in schema.schema if getattr(key, "schema", None) == "reset_templates_to_default"
+    )
+    assert reset_templates_marker.default() is False

@@ -130,6 +130,13 @@
 ### Шаблоны уведомлений
 
 Поля шаблонов необязательны. Если оставить их пустыми, интеграция использует стандартные локализованные сообщения.
+В форме настройки шаблоны уже предзаполнены локализованными default-значениями.
+
+В `Options` доступен переключатель:
+
+- `Reset templates to default`
+
+Если включить его и сохранить настройки, все три шаблона будут сброшены к локализованным default-значениям текущего языка Home Assistant.
 
 Доступные плейсхолдеры:
 
@@ -160,7 +167,8 @@
 
 - `message` — необязательный текст тестового уведомления
 
-Если параметр не указан, интеграция отправит стандартное тестовое сообщение.
+В UI действия поле `message` заполняется стандартным тестовым сообщением по умолчанию.
+Если параметр не указан, интеграция всё равно отправит стандартное тестовое сообщение.
 
 ### Диагностические сенсоры
 
@@ -289,23 +297,36 @@
 ## Ограничения текущей версии
 
 - детект батарейных сущностей намеренно консервативный
-- текст уведомлений пока не настраивается через UI
-- интеграция работает только с теми значениями батареи, которые уже есть в Home Assistant
+- интеграция не использует vendor-specific эвристики и нестандартные battery-атрибуты
+- для `binary_sensor` поддерживается только `device_class = battery`
+- шаблоны уведомлений поддерживают простой `str.format`-стиль с фиксированным набором плейсхолдеров
+- интеграция работает только с теми battery-состояниями, которые уже публикуются в Home Assistant
 
 ## Структура проекта
 
 Основные файлы:
 
+- `custom_components/battery_informer/__init__.py`
 - `custom_components/battery_informer/manifest.json`
 - `custom_components/battery_informer/config_flow.py`
 - `custom_components/battery_informer/manager.py`
 - `custom_components/battery_informer/sensor.py`
 - `custom_components/battery_informer/detector.py`
+- `custom_components/battery_informer/i18n.py`
 - `custom_components/battery_informer/services.yaml`
 - `custom_components/battery_informer/strings.json`
+- `custom_components/battery_informer/translations/en.json`
+- `custom_components/battery_informer/translations/ru.json`
 - `hacs.json`
+- `brand/icon.png`
+- `brand/logo.png`
 - `brand/icon.svg`
 - `brand/logo.svg`
+- `custom_components/battery_informer/brand/icon.png`
+- `custom_components/battery_informer/brand/logo.png`
+- `tests/test_config_flow.py`
+- `tests/test_detector.py`
+- `tests/test_manager.py`
 
 ## Релизы и changelog
 
