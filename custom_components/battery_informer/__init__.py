@@ -68,7 +68,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         schema=vol.Schema(
             {
                 vol.Optional(ATTR_MESSAGE): cv.string,
-                vol.Optional("data"): object,
+                vol.Optional("data"): vol.Any(None, object),
             },
             extra=vol.ALLOW_EXTRA,
         ),
